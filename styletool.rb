@@ -1,4 +1,4 @@
-
+require 'tk'
 
 class Document
   attr_reader :name, :wordCount, :countedWords
@@ -30,8 +30,39 @@ public
   def initialize
     @documents = Array.new
     @masterWordList = Array.new
+
+    #and now for the GUI
+    @root = TkRoot.new() {title 'Style Tool'}
+
+    TkLabel.new{
+      @root
+      text "Loaded files:"
+    }.grid('column'=>0,'row'=>0, 'sticky'=>'w')
+    @listbox = TkListbox.new(@root) {
+      selectmode "none"
+      height 5
+    }.grid('column'=>1, 'row'=>0,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+
+
+    addfile = proc {self.addFile(Tk.getOpenFile)}
+    addfolder = proc {self.addFolder(Tk.chooseDirectory)}
+    save = proc {self.saveToCSV(Tk.getSaveFile("filetypes"=>[["CSV", ".csv"]]))}
+    TkButton.new(@root) {
+      text    'Add file'
+      command addfile
+    }.grid('column'=>0, 'row'=>1,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkButton.new(@root) {
+      text    'Add folder'
+      command addfolder
+    }.grid('column'=>1, 'row'=>1,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkButton.new(@root) {
+      text    'Save as CSV'
+      command save
+    }.grid('column'=>2, 'row'=>1,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+
   end
   def addFile(filename)
+    @listbox.insert('end', filename)
     newdoc = Document.new(filename,IO.read(filename))
     @documents.push(newdoc)
     @masterWordList = (@masterWordList | newdoc.words).sort
@@ -50,4 +81,10 @@ public
       end
     end
   end
+end
+
+
+if __FILE__ == $0
+  Interface.new
+  Tk.mainloop()
 end
