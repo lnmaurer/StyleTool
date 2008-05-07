@@ -16,17 +16,12 @@ class Document
     #will return 0 if 'word' not in 'countedWords' since 0 is the default value
     @countedWords[word]
   end
-  def wordScore(word)
+  def relativeFrequency(word)
     @countedWords[word] / @wordCount.to_f
   end
 end
 
 class Interface
-private
-  def updateMasterWordList
-    @masterWordList = @documents.inject{|list,doc| doc.words | list}
-  end
-public
   def initialize
     @documents = Array.new
     @masterWordList = Array.new
@@ -72,11 +67,12 @@ public
   end
   def saveToCSV(filename)
     File.open(filename, "w") do |file|
+      #prints the file name at the top of each column
       @documents.each{|doc| file.print(",",doc.name)}
       file.print("\n")
       @masterWordList.each do |word|
         file.print(word)
-        @documents.each{|doc| file.print(",",doc.wordScore(word))}
+        @documents.each{|doc| file.print(",",doc.relativeFrequency(word))}
         file.print("\n")
       end
     end
