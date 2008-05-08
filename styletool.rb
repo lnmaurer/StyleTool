@@ -76,11 +76,19 @@ class Interface
     }.grid('column'=>2, 'row'=>1,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
 
     wordlisttoggled = proc {
-      @documents = Array.new
-      @masterWordList = Array.new
-      @listbox.delete(0) while @listbox.size != 0
       if @wordListSpecified.get_value == "1"
-        @masterWordList = IO.read(Tk.getOpenFile).downcase.scan(/\w+/).uniq
+        filename = Tk.getOpenFile
+        unless filename == ""
+          @masterWordList = IO.read(filename).downcase.scan(/\w+/).uniq
+          @documents = Array.new
+          @listbox.delete(0) while @listbox.size != 0
+        else #the user hit 'cancel' -- don't change anything!
+          @wordListSpecified.set_value("0")
+        end
+      else
+        @documents = Array.new
+        @masterWordList = Array.new
+        @listbox.delete(0) while @listbox.size != 0
       end
     }
     @wordListSpecified = TkCheckButton.new(@root){
