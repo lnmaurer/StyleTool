@@ -43,9 +43,19 @@ class Interface
     }.grid('column'=>1, 'row'=>0,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
 
 
-    addfile = proc {self.addFile(Tk.getOpenFile)}
-    addfolder = proc {self.addFolder(Tk.chooseDirectory)}
-    save = proc {self.saveToCSV(Tk.getSaveFile("filetypes"=>[["CSV", ".csv"]]))}
+    addfile = proc {
+      filename = Tk.getOpenFile
+      #if the user clicks "cancel" in the dialog box then filename == ""
+      self.addFile(filename) unless filename == ""
+    }
+    addfolder = proc {
+      foldername = Tk.chooseDirectory
+      self.addFolder(foldername) unless foldername == ""
+    }
+    save = proc {
+      filename = Tk.getSaveFile("filetypes"=>[["CSV", ".csv"]])
+      self.saveToCSV(filename) unless filename == ""
+    }
     TkButton.new(@root) {
       text    'Add file'
       command addfile
