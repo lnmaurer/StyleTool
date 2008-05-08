@@ -6,7 +6,11 @@ class Document
     @name = name
     @countedWords = Hash.new(0)
     words = text.downcase.scan(/\w+/)
-    words.each{|word| @countedWords[word] += 1}
+    if block_given?
+      words.each{|word| @countedWords[word] += 1 if yield(word)}
+    else
+      words.each{|word| @countedWords[word] += 1}
+    end
     @wordCount = words.size
   end
   def words
@@ -55,10 +59,28 @@ class Interface
       command save
     }.grid('column'=>2, 'row'=>1,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
 
+    wordlisttoggled = proc {
+      @documents = Array.new
+      @masterWordList = Array.new
+      if @wordListSpecified
+        @masterWordList = IO.read(Tk.getOpenFile).downcase.scan(/\w+/).uniq
+      end
+    }
+    @wordListSpecified = TkCheckButton.new(@root){
+      text "Count specific words only"
+      command wordlisttoggled
+      onvalue true
+      offvalue false
+    }.grid('column'=>0,'row'=> 2, 'sticky'=>'w')
+
   end
   def addFile(filename)
     @listbox.insert('end', filename)
-    newdoc = Document.new(filename,IO.read(filename))
+    if @wordListSpecified
+      newdoc = Document.new(filename,IO.read(filename)) {|word| @masterWordList.include?(word)}
+    else
+      newdoc = Document.new(filename,IO.read(filename))
+    end
     @documents.push(newdoc)
     @masterWordList = (@masterWordList | newdoc.words).sort
   end
