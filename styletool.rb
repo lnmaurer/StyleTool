@@ -62,15 +62,14 @@ class Interface
     wordlisttoggled = proc {
       @documents = Array.new
       @masterWordList = Array.new
-      if @wordListSpecified
+      @listbox.delete(0) while @listbox.size != 0
+      if @wordListSpecified.get_value == "1"
         @masterWordList = IO.read(Tk.getOpenFile).downcase.scan(/\w+/).uniq
       end
     }
     @wordListSpecified = TkCheckButton.new(@root){
       text "Count specific words only"
       command wordlisttoggled
-      onvalue true
-      offvalue false
     }.grid('column'=>0,'row'=> 2, 'sticky'=>'w')
 
   end
@@ -80,9 +79,9 @@ class Interface
       newdoc = Document.new(filename,IO.read(filename)) {|word| @masterWordList.include?(word)}
     else
       newdoc = Document.new(filename,IO.read(filename))
+      @masterWordList = (@masterWordList | newdoc.words).sort
     end
     @documents.push(newdoc)
-    @masterWordList = (@masterWordList | newdoc.words).sort
   end
   def addFolder(path)
     Dir.chdir(path){Dir.foreach(path){|file| self.addFile(file) if File.file?(file)}}
