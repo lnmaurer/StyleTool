@@ -37,11 +37,17 @@ class Interface
       @root
       text "Loaded files:"
     }.grid('column'=>0,'row'=>0, 'sticky'=>'w')
+    yscroll = proc{|*args| @lbscroll.set(*args)}
+    scroll = proc{|*args| @listbox.yview(*args)}
     @listbox = TkListbox.new(@root) {
       selectmode "none"
       height 5
+      yscrollcommand yscroll
     }.grid('column'=>1, 'row'=>0,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-
+    @lbscroll = TkScrollbar.new(@root) {
+      orient 'vertical'
+      command scroll
+    }.grid('column'=>2, 'row'=>0,'sticky'=>'ns')
 
     addfile = proc {
       filename = Tk.getOpenFile
