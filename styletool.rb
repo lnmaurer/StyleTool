@@ -43,11 +43,11 @@ class Interface
       selectmode "none"
       height 5
       yscrollcommand yscroll
-    }.grid('column'=>1, 'row'=>0,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>1, 'row'=>0,'sticky'=>'nsew')
     @lbscroll = TkScrollbar.new(@root) {
       orient 'vertical'
       command scroll
-    }.grid('column'=>2, 'row'=>0,'sticky'=>'ns')
+    }.grid('column'=>2, 'row'=>0,'sticky'=>'wns')
 
     addfile = proc {
       filename = Tk.getOpenFile
