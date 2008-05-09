@@ -1,4 +1,5 @@
 require 'tk'
+require 'gsl'
 
 class Document
   attr_reader :name, :wordCount, :countedWords
@@ -22,6 +23,48 @@ class Document
   end
   def relativeFrequency(word)
     @countedWords[word] / @wordCount.to_f
+  end
+end
+
+
+class PCAtool
+  attr_reader :matrix
+  def initialize(vectors)
+    @matrix = Matrix.alloc(vectors.flatten, vectors.size, vectors[0].size)
+  end
+  def center
+    avg = Vector.calloc(@matrix.size1) #calloc initalizes all values to 0
+    for r in 0..(@matrix.size1 - 1)
+      for c in 0..(@matrix.size2 - 1)
+        avg[r] += @matrix[r,c] / @matrix.size2.to_f
+      end
+    end
+    avg
+  end
+  def centeredMatrix
+    cm = @matrix.duplicate
+    avg = self.center
+     for r in 0..(@matrix.size1 - 1)
+      for c in 0..(@matrix.size2 - 1)
+        cm[r,c] -= avg[r]
+      end
+    end
+    cm
+  end
+  def scatterMatrix
+    cm = self.centeredMatrix
+    cm*cm.transpose_memcpy   
+  end
+  def reduceDimensions(dims)
+    vecs = Array.new(@matrix.size2){Array.new(dims)}
+    eigval, eigvec = self.scatterMatrix.eigen_symmv
+    cm = self.centeredMatrix
+    for c in 0..(@matrix.size2 - 1)
+      for e in 0..(dims - 1)
+        vecs[c][e] = cm.col(c).row*eigvec.col(e)
+      end
+    end
+    vecs
   end
 end
 
