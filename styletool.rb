@@ -30,7 +30,7 @@ end
 class PCAtool
   attr_reader :matrix
   def initialize(vectors)
-    @matrix = Matrix.alloc(vectors.flatten, vectors.size, vectors[0].size)
+    @matrix = Matrix.alloc(vectors.flatten, vectors.size, vectors[0].size).transpose
   end
   def center
     avg = Vector.calloc(@matrix.size1) #calloc initalizes all values to 0
@@ -53,7 +53,7 @@ class PCAtool
   end
   def scatterMatrix
     cm = self.centeredMatrix
-    cm*cm.transpose_memcpy   
+    cm*cm.transpose  
   end
   def reduceDimensions(dims)
     vecs = Array.new(@matrix.size2){Array.new(dims)}
@@ -69,6 +69,7 @@ class PCAtool
 end
 
 class Interface
+  attr_reader :documents
   def initialize
     @documents = Array.new
     @masterWordList = Array.new
@@ -105,6 +106,12 @@ class Interface
       filename = Tk.getSaveFile("filetypes"=>[["CSV", ".csv"]])
       self.saveToCSV(filename) unless filename == ""
     }
+    pca = proc {
+      c = PCAtool.new(self.coords).reduceDimensions(2)
+      x = c.collect{|coord| coord[0]}
+      y = c.collect{|coord| coord[1]}
+      graph(Vector.alloc(x),Vector.alloc(y),"-T X -C -m -2 -S 3")
+    }
     TkButton.new(@root) {
       text    'Add file'
       command addfile
@@ -117,21 +124,20 @@ class Interface
       text    'Save as CSV'
       command save
     }.grid('column'=>2, 'row'=>1,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-
+    TkButton.new(@root) {
+      text    '2D PCA'
+      command pca
+    }.grid('column'=>3, 'row'=>1,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     wordlisttoggled = proc {
       if @wordListSpecified.get_value == "1"
         filename = Tk.getOpenFile
         unless filename == ""
-          @masterWordList = IO.read(filename).downcase.scan(/\w+/).uniq
-          @documents = Array.new
-          @listbox.delete(0) while @listbox.size != 0
+          self.specifyWordList(filename)
         else #the user hit 'cancel' -- don't change anything!
           @wordListSpecified.set_value("0")
         end
       else
-        @documents = Array.new
-        @masterWordList = Array.new
-        @listbox.delete(0) while @listbox.size != 0
+        self.unspecifyWordList
       end
     }
     @wordListSpecified = TkCheckButton.new(@root){
@@ -140,9 +146,21 @@ class Interface
     }.grid('column'=>0,'row'=> 2, 'sticky'=>'w')
 
   end
+  def specifyWordList(filename)
+    @wordListSpecified.set_value("1") 
+    @masterWordList = IO.read(filename).downcase.scan(/\w+/).uniq
+    @documents = Array.new
+    @listbox.delete(0) while @listbox.size != 0
+  end
+  def unspecifyWordList
+    @wordListSpecified.set_value("0") 
+    @documents = Array.new
+    @masterWordList = Array.new
+    @listbox.delete(0) while @listbox.size != 0
+  end
   def addFile(filename)
     @listbox.insert('end', filename)
-    if @wordListSpecified
+    if @wordListSpecified.get_value == '1'
       newdoc = Document.new(filename,IO.read(filename)) {|word| @masterWordList.include?(word)}
     else
       newdoc = Document.new(filename,IO.read(filename))
@@ -152,6 +170,9 @@ class Interface
   end
   def addFolder(path)
     Dir.chdir(path){Dir.foreach(path){|file| self.addFile(file) if File.file?(file)}}
+  end
+  def coords
+    @documents.collect{|doc| @masterWordList.collect{|word| doc.relativeFrequency(word)}}
   end
   def saveToCSV(filename)
     File.open(filename, "w") do |file|
