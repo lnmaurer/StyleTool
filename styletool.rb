@@ -1,5 +1,6 @@
 require 'tk'
 require 'gsl'
+#require 'gnuplot'
 
 class Document
   attr_reader :name, :wordCount, :countedWords
@@ -106,11 +107,15 @@ class Interface
       filename = Tk.getSaveFile("filetypes"=>[["CSV", ".csv"]])
       self.saveToCSV(filename) unless filename == ""
     }
-    pca = proc {
-      c = PCAtool.new(self.coords).reduceDimensions(2)
+    plotpca = proc {
+      c = self.doPCA(2)
       x = c.collect{|coord| coord[0]}
       y = c.collect{|coord| coord[1]}
       graph(Vector.alloc(x),Vector.alloc(y),"-T X -C -m -2 -S 3")
+    }
+    savepca = proc {
+      filename = Tk.getSaveFile("filetypes"=>[["CSV", ".csv"]])
+      self.savePCAtoCSV(filename) unless filename == ""
     }
     TkButton.new(@root) {
       text    'Add file'
@@ -125,9 +130,13 @@ class Interface
       command save
     }.grid('column'=>2, 'row'=>1,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkButton.new(@root) {
-      text    '2D PCA'
-      command pca
-    }.grid('column'=>3, 'row'=>1,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+      text    'plot 2D PCA'
+      command plotpca
+    }.grid('column'=>0, 'row'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkButton.new(@root) {
+      text    'save 2D PCA'
+      command savepca
+    }.grid('column'=>1, 'row'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     wordlisttoggled = proc {
       if @wordListSpecified.get_value == "1"
         filename = Tk.getOpenFile
@@ -143,8 +152,11 @@ class Interface
     @wordListSpecified = TkCheckButton.new(@root){
       text "Count specific words only"
       command wordlisttoggled
-    }.grid('column'=>0,'row'=> 2, 'sticky'=>'w')
+    }.grid('column'=>0,'row'=> 3, 'sticky'=>'w')
 
+  end
+  def doPCA(dims)
+    PCAtool.new(self.coords).reduceDimensions(dims)
   end
   def specifyWordList(filename)
     @wordListSpecified.set_value("1") 
@@ -185,6 +197,22 @@ class Interface
         file.print("\n")
       end
     end
+  end
+  def savePCAtoCSV(filename,dims=2)
+    pca = self.doPCA(dims)
+    File.open(filename, "w") do |file|
+      #prints the file name at the top of each column
+#      @documents.each{|doc| file.print(doc.name,",")}
+#      file.print("\n")
+#      for i in 0..(dims - 1)
+#        pca.each{|coord| file.print(coord[i],",")}
+#        file.print("\n")
+#      end
+pca.each{|arr|
+  arr.each{|num| file.print(num," ")}
+  file.print("\n")
+}
+    end    
   end
 end
 
