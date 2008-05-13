@@ -2,6 +2,7 @@ require 'tk'
 require 'gsl'
 #require 'gnuplot'
 require 'tkextlib/tile/treeview'
+require 'tempfile'
 
 class Document
   attr_reader :name, :author, :wordCount, :countedWords
@@ -26,6 +27,13 @@ class Document
   end
   def relativeFrequency(word)
     @countedWords[word] / @wordCount.to_f
+  end
+  def <=>(other) #used for sorting
+    if @author == other.author
+      @name <=> other.name
+    else
+      @author <=> other.author
+    end 
   end
 end
 
@@ -97,10 +105,7 @@ class Interface
       self.saveToCSV(filename) unless filename == ""
     }
     plotpca = proc {
-      c = self.doPCA(2)
-      x = c.collect{|coord| coord[0]}
-      y = c.collect{|coord| coord[1]}
-      graph(Vector.alloc(x),Vector.alloc(y),"-T X -C -m -2 -S 3")
+      self.plotPCA
     }
     savepca = proc {
       filename = Tk.getSaveFile("filetypes"=>[["CSV", ".csv"]])
@@ -207,6 +212,7 @@ class Interface
       @masterWordList = (@masterWordList | newdoc.words).sort
     end
     @documents.push(newdoc)
+    @documents = @documents.sort #keeps everything sorted
   end
   def addFolder(path)
     Dir.chdir(path){Dir.foreach(path){|file| self.addFile(file) if File.file?(file)}}
@@ -238,6 +244,22 @@ class Interface
         file.print("\n")
       end
     end
+  end
+  def plotPCA
+    authors = @documents.collect{|doc| doc.author}.uniq
+    #the following gives [ ['author',[x,y]], ...]
+    c = @documents.collect{|doc| doc.author}.zip(self.doPCA(2))
+    tfiles = authors.collect do |author|
+      tf = Tempfile.new(author)
+      c.find_all{|arr| arr[0] == author}.each{|coords| tf.print(coords[1][0]," ",coords[1][1])}
+      tf.close
+      tf #need to return tf at the end
+    end
+
+  color = 0
+  command = tfiles.inject("graph -T X -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + tf.path}
+  IO.popen(command, "w")
+
   end
   def savePCAtoCSV(filename,dims=2)
     pca = self.doPCA(dims)
