@@ -157,7 +157,7 @@ class Interface
       text "Loaded files:"
     }.grid('column'=>0,'row'=>2, 'sticky'=>'w')
 
-
+#TODO: horizontal scroll bar? change width and height?
     yscroll = proc{|*args| @lbscroll.set(*args)}
     scroll = proc{|*args| @tree.yview(*args)}
     @tree = Tk::Tile::Treeview.new(@root){
@@ -199,13 +199,22 @@ class Interface
     @tree.children("").each{|item| @tree.delete(item)}
   end
   def addFile(filename)
-  #add author if need be
-  unless @tree.exist?(@author.value)
-    @tree.insert('', 'end', :id => @author.value, :text => @author.value)
-  end
-  @tree.insert( @author.value, 'end', :id => filename, :text => filename)
+    if @tree.exist?(filename)
+      Tk.messageBox('type' => 'ok',
+        'icon' => 'error',
+        'title' => 'File already included',
+        'message' => "A file named #{filename} has already been added -- you cannot add the same file more than once.")
+      return
+    end
 
-   if @wordListSpecified.get_value == '1'
+    #add author if need be
+    unless @tree.exist?(@author.value)
+      @tree.insert('', 'end', :id => @author.value, :text => @author.value)
+    end
+    #id is the full path but text is just the file name
+    @tree.insert( @author.value, 'end', :id => filename, :text => filename.split('/').pop)
+
+    if @wordListSpecified.get_value == '1'
       newdoc = Document.new(filename,@author.value,IO.read(filename)) {|word| @masterWordList.include?(word)}
     else
       newdoc = Document.new(filename,@author.value,IO.read(filename))
@@ -215,7 +224,8 @@ class Interface
     @documents = @documents.sort #keeps everything sorted
   end
   def addFolder(path)
-    Dir.chdir(path){Dir.foreach(path){|file| self.addFile(file) if File.file?(file)}}
+    #add path to keep things consistant with adding single files
+    Dir.chdir(path){Dir.foreach(path){|file| self.addFile(path + '/' + file) if File.file?(file)}}
   end
   def remove(item)
     if @documents.collect{|doc| doc.author}.include?(item.id) #have we slected all works by the author?
@@ -255,11 +265,11 @@ class Interface
       tf.close
       tf #need to return tf at the end
     end
-
-  color = 0
-  command = tfiles.inject("graph -T X -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + tf.path}
-  IO.popen(command, "w")
-
+  #TODO: change this? only a couple of colors are available. Make a key for the colors
+  #TODO: use canvas instead of another program?
+    color = 0
+    command = tfiles.inject("graph -T X -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + tf.path}
+    IO.popen(command, "w")
   end
   def savePCAtoCSV(filename,dims=2)
     pca = self.doPCA(dims)
