@@ -93,11 +93,11 @@ class Interface
     addfile = proc {
       filename = Tk.getOpenFile
       #if the user clicks "cancel" in the dialog box then filename == ""
-      self.addFile(filename) unless filename == ""
+      self.addFile(filename,@author.value) unless filename == ""
     }
     addfolder = proc {
       foldername = Tk.chooseDirectory
-      self.addFolder(foldername) unless foldername == ""
+      self.addFolder(foldername,@author.value) unless foldername == ""
     }
     remove = proc {
       self.remove(@tree.focus_item)
@@ -202,18 +202,22 @@ class Interface
     PCAtool.new(self.coords).reduceDimensions(dims)
   end
   def specifyWordList(filename)
-    @wordListSpecified.set_value("1") 
     @masterWordList = IO.read(filename).downcase.scan(/\w+/).uniq
-    @documents = Array.new
-    @tree.children("").each{|item| @tree.delete(item)}
+    self.reload
   end
   def unspecifyWordList
-    @wordListSpecified.set_value("0") 
-    @documents = Array.new
     @masterWordList = Array.new
-    @tree.children("").each{|item| @tree.delete(item)}
+    self.reload
   end
-  def addFile(filename)
+  def reload
+    docinfo = @documents.collect{|doc| [doc.name,doc.author]}
+    #clear everything
+    @documents = Array.new
+    @tree.children("").each{|item| @tree.delete(item)}
+    #reload it
+    docinfo.each{|filename,author| self.addFile(filename,author)}
+  end
+  def addFile(filename,author)
     if @tree.exist?(filename)
       Tk.messageBox('type' => 'ok',
         'icon' => 'error',
@@ -223,24 +227,29 @@ class Interface
     end
 
     #add author if need be
-    unless @tree.exist?(@author.value)
-      @tree.insert('', 'end', :id => @author.value, :text => @author.value)
+    unless @tree.exist?(author)
+      authors = @tree.children("").collect{|item| item.id}
+      i = 0
+      while (i < authors.size) and (author.casecmp(authors[i]) == 1)
+        i += 1
+      end
+      @tree.insert('', i, :id => author, :text => author)
     end
     #id is the full path but text is just the file name
-    @tree.insert( @author.value, 'end', :id => filename, :text => filename.split('/').pop)
+    @tree.insert(author, 'end', :id => filename, :text => filename.split('/').pop)
 
     if @wordListSpecified.get_value == '1'
-      newdoc = Document.new(filename,@author.value,IO.read(filename)) {|word| @masterWordList.include?(word)}
+      newdoc = Document.new(filename,author,IO.read(filename)) {|word| @masterWordList.include?(word)}
     else
-      newdoc = Document.new(filename,@author.value,IO.read(filename))
+      newdoc = Document.new(filename,author,IO.read(filename))
       @masterWordList = (@masterWordList | newdoc.words).sort
     end
     @documents.push(newdoc)
     @documents = @documents.sort #keeps everything sorted
   end
-  def addFolder(path)
+  def addFolder(path,author)
     #add path to keep things consistant with adding single files
-    Dir.chdir(path){Dir.foreach(path){|file| self.addFile(path + '/' + file) if File.file?(file)}}
+    Dir.chdir(path){Dir.foreach(path){|file| self.addFile(path + '/' + file,author) if File.file?(file)}}
   end
   def remove(item)
     if @documents.collect{|doc| doc.author}.include?(item.id) #have we slected all works by the author?
