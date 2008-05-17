@@ -1,3 +1,5 @@
+#!/usr/bin/ruby
+
 require 'tk'
 require 'gsl'
 #require 'gnuplot'
@@ -109,20 +111,20 @@ class Interface
     }
     savepca = proc {
       filename = Tk.getSaveFile("filetypes"=>[["CSV", ".csv"]])
-      self.savePCAtoCSV(filename) unless filename == ""
-    }
+      self.savePCAtoCSV(filename,@pcaspinbox.get.to_i) unless filename == ""
+   }
     TkButton.new(@root) {
       text    'Add file'
       command addfile
-    }.grid('column'=>0, 'row'=>4,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>0, 'row'=>5,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkButton.new(@root) {
       text    'Add folder'
       command addfolder
-    }.grid('column'=>1, 'row'=>4,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>1, 'row'=>5,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkButton.new(@root) {
       text    'Remove'
       command remove
-    }.grid('column'=>2, 'row'=>4,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>2, 'row'=>5,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkButton.new(@root) {
       text    'Save as CSV'
       command save
@@ -132,9 +134,22 @@ class Interface
       command plotpca
     }.grid('column'=>1, 'row'=>0,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkButton.new(@root) {
-      text    'save 2D PCA'
+      text    'Save PCA as CSV'
       command savepca
     }.grid('column'=>2, 'row'=>0,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+
+    TkLabel.new{
+      @root
+      text "PCA dimensions:"
+    }.grid('column'=>1,'row'=>1, 'sticky'=>'e', 'padx'=>5, 'pady'=>5)
+    @pcaspinbox = TkSpinbox.new(@root) {
+      to 50
+      from 1
+      increment 1
+      width 4
+    }.grid('column'=>2,'row'=>1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @pcaspinbox.set(2) #a good starting value
+
     wordlisttoggled = proc {
       if @wordListSpecified.get_value == "1"
         filename = Tk.getOpenFile
@@ -150,7 +165,7 @@ class Interface
     @wordListSpecified = TkCheckButton.new(@root){
       text "Count specific words only"
       command wordlisttoggled
-    }.grid('column'=>1,'row'=> 1, 'sticky'=>'w')
+    }.grid('column'=>1,'row'=> 4, 'sticky'=>'w')
 
     TkLabel.new{
       @root
@@ -271,20 +286,15 @@ class Interface
     command = tfiles.inject("graph -T X -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + tf.path}
     IO.popen(command, "w")
   end
-  def savePCAtoCSV(filename,dims=2)
+  def savePCAtoCSV(filename,dims)
     pca = self.doPCA(dims)
     File.open(filename, "w") do |file|
-      #prints the file name at the top of each column
-#      @documents.each{|doc| file.print(doc.name,",")}
-#      file.print("\n")
-#      for i in 0..(dims - 1)
-#        pca.each{|coord| file.print(coord[i],",")}
-#        file.print("\n")
-#      end
-pca.each{|arr|
-  arr.each{|num| file.print(num," ")}
-  file.print("\n")
-}
+      @documents.zip(pca).each do |doc,coords|
+        file.print(doc.author,",")
+        file.print(doc.name,",")
+        coords.each{|coord| file.print(coord,",")}
+        file.print("\n")
+      end
     end    
   end
 end
