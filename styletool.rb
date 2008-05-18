@@ -12,7 +12,7 @@ class Document
     @name = name
     @author = author
     @countedWords = Hash.new(0)
-    words = text.downcase.scan(/\w+/)
+    words = text.downcase.scan(/\w+/) #doesn't catch contractions
     if block_given?
       words.each{|word| @countedWords[word] += 1 if yield(word)}
     else
@@ -223,7 +223,7 @@ class Interface
         'icon' => 'error',
         'title' => 'File already included',
         'message' => "A file named #{filename} has already been added -- you cannot add the same file more than once.")
-      return
+      return #exits the function
     end
 
     #add author if need be
@@ -235,8 +235,15 @@ class Interface
       end
       @tree.insert('', i, :id => author, :text => author)
     end
+
     #id is the full path but text is just the file name
-    @tree.insert(author, 'end', :id => filename, :text => filename.split('/').pop)
+    name = filename.split('/').pop
+    names = @tree.children(author).collect{|item| item.id.split('/').pop}
+    i = 0
+    while (i < names.size) and (name.casecmp(names[i]) == 1)
+      i += 1
+    end
+    @tree.insert(author, i, :id => filename, :text => name)
 
     if @wordListSpecified.get_value == '1'
       newdoc = Document.new(filename,author,IO.read(filename)) {|word| @masterWordList.include?(word)}
@@ -290,7 +297,7 @@ class Interface
       tf #need to return tf at the end
     end
   #TODO: change this? only a couple of colors are available. Make a key for the colors
-  #TODO: use canvas instead of another program?
+  #TODO: use canvas instead of another program? canvas can output to postscript...
     color = 0
     command = tfiles.inject("graph -T X -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + tf.path}
     IO.popen(command, "w")
