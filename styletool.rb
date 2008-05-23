@@ -296,12 +296,29 @@ class Interface
       tf.close
       tf #need to return tf at the end
     end
-  #TODO: change this? only a couple of colors are available. Make a key for the colors
+  #TODO: change this? only a couple of colors are available.
+  #TODO: Make a key for the colors
   #TODO: use canvas instead of another program? canvas can output to postscript...
     color = 0
-    command = tfiles.inject("graph -T X -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + tf.path}
+    command = tfiles.inject("graph -T X -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + '"' + tf.path + '"'}
+    #'"' are to put quotes around the name, incase there is a space in it
     IO.popen(command, "w")
+    responce = Tk::messageBox(
+      'type' => 'yesno',
+      'message' => 'Do you wish to save this plot?',
+      'icon' => 'question',
+      'title' => 'Save plot?')
+    if responce == 'yes'
+      filename = Tk.getSaveFile("filetypes"=>[["PS", ".ps"],["PNG",".png"],["SVG",".svg"]])
+#      self.savePlot(filename) unless filename == ""
+      color = 0
+      command = tfiles.inject("graph -T #{filename.split(".").pop} -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + '"' + tf.path + '"'} + " > #{filename}"
+      IO.popen(command, "w")
+    end
   end
+#  def savePlot(filename)
+#puts filename
+#  end
   def savePCAtoCSV(filename,dims)
     pca = self.doPCA(dims)
     File.open(filename, "w") do |file|
