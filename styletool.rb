@@ -286,6 +286,9 @@ class Interface
       end
     end
   end
+  
+  @@GraphColors = ['Red', 'Green', 'Blue', 'Magenta', 'Cyan']  
+
   def plotPCA
     authors = @documents.collect{|doc| doc.author}.uniq
     #the following gives [ ['author',[x,y]], ...]
@@ -302,6 +305,8 @@ class Interface
     color = 0
     command = tfiles.inject("graph -T X -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + '"' + tf.path + '"'}
     #'"' are to put quotes around the name, incase there is a space in it
+    color = -1
+    command += authors.inject(" -L \""){|command, auth| command + " #{auth} #{@@GraphColors[color+=1]} "} + '"'
     IO.popen(command, "w")
     responce = Tk::messageBox(
       'type' => 'yesno',
@@ -312,7 +317,9 @@ class Interface
       filename = Tk.getSaveFile("filetypes"=>[["PS", ".ps"],["PNG",".png"],["SVG",".svg"]])
 #      self.savePlot(filename) unless filename == ""
       color = 0
-      command = tfiles.inject("graph -T #{filename.split(".").pop} -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + '"' + tf.path + '"'} + " > #{filename}"
+      command = tfiles.inject("graph -T #{filename.split(".").pop} -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + '"' + tf.path + '"'}
+      color = -1
+      command += authors.inject(" -L \""){|command, auth| command + " #{auth} #{@@GraphColors[color+=1]} "} + "\" > #{filename}"
       IO.popen(command, "w")
     end
   end
