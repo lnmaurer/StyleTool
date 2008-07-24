@@ -1,6 +1,7 @@
 #!/usr/bin/ruby
 
 require 'tk'
+require 'yaml' #needs to be before gsl?
 require 'gsl'
 #require 'gnuplot'
 require 'tkextlib/tile/treeview'
@@ -83,12 +84,19 @@ end
 
 class Interface
   attr_reader :documents
+  @@ConfigFile = ".styletoolconfig"
   def initialize
     @documents = Array.new
     @masterWordList = Array.new
 
+    quit = proc {
+      settings = {"UseWordList" => (@wordListSpecified.get_value == "1"),"PCAdims" => @pcaspinbox.get.to_i,"WordList" => @masterWordList}
+      File.open(@@ConfigFile, "w"){|file| file.print(settings.to_yaml)}
+      Process.exit
+    }
+
     #and now for the GUI
-    @root = TkRoot.new() {title 'Style Tool'}
+    @root = TkRoot.new(){title 'Style Tool'}.protocol('WM_DELETE_WINDOW', quit)
 
     addfile = proc {
       filename = Tk.getOpenFile
@@ -148,7 +156,7 @@ class Interface
       increment 1
       width 4
     }.grid('column'=>2,'row'=>1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    @pcaspinbox.set(2) #a good starting value
+    @pcaspinbox.set(2) #a good default value
 
     wordlisttoggled = proc {
       if @wordListSpecified.get_value == "1"
@@ -197,6 +205,18 @@ class Interface
     }.grid('column'=>1,'row'=> 3, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     authorDisp.textvariable(@author)
     @author.value = 'Unknown'
+
+    #load settings from config file if it exists
+    if File.file?(@@ConfigFile)
+      #TODO: error handling for YAML
+      settings = YAML.load(File.open(@@ConfigFile))
+      if settings["UseWordList"]
+        @wordListSpecified.set_value("1")
+        @masterWordList = settings["WordList"]
+      end
+      @pcaspinbox.set(settings["PCAdims"])
+    end
+
   end
   def doPCA(dims)
     PCAtool.new(self.coords).reduceDimensions(dims)
