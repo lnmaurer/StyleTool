@@ -61,10 +61,10 @@ end
 class PCAtool
   attr_reader :matrix
   def initialize(vectors)
-    @matrix = Matrix.alloc(vectors.flatten, vectors.size, vectors[0].size).transpose
+    @matrix = GSL::Matrix.alloc(vectors.flatten, vectors.size, vectors[0].size).transpose
   end
   def center
-    avg = Vector.calloc(@matrix.size1) #calloc initalizes all values to 0
+    avg = GSL::Vector.calloc(@matrix.size1) #calloc initalizes all values to 0
     for r in 0..(@matrix.size1 - 1)
       for c in 0..(@matrix.size2 - 1)
         avg[r] += @matrix[r,c] / @matrix.size2.to_f
@@ -107,7 +107,11 @@ class Interface
     @masterWordList = Array.new
 
     quit = proc {
-      settings = {"UseWordList" => (@wordListSpecified.get_value == "1"),"PCAdims" => @pcaspinbox.get.to_i,"WordList" => @masterWordList}
+      settings = {"UseWordList" => (@wordListSpecified.get_value == "1"),
+                 "PCAdims" => @pcaspinbox.get.to_i,
+                 "WordList" => @masterWordList,
+                 "ChunkDocs" => (@chunkDocs.get_value == "1"),
+                 "ChunkSize"=>@chunkSize.get.to_i}
       File.open(@@ConfigFile, "w"){|file| file.print(settings.to_yaml)}
       Process.exit
     }
@@ -141,15 +145,15 @@ class Interface
     TkButton.new(@root) {
       text    'Add file'
       command addfile
-    }.grid('column'=>0, 'row'=>5,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>0, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkButton.new(@root) {
       text    'Add folder'
       command addfolder
-    }.grid('column'=>1, 'row'=>5,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>1, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkButton.new(@root) {
       text    'Remove'
       command remove
-    }.grid('column'=>2, 'row'=>5,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>2, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkButton.new(@root) {
       text    'Save as CSV'
       command save
@@ -192,6 +196,28 @@ class Interface
       command wordlisttoggled
     }.grid('column'=>1,'row'=> 4, 'sticky'=>'w')
 
+    chunkdocstoggled = proc{
+      if @chunkDocs.get_value == "1"
+        @chunkSize.state('normal')
+      else
+        @chunkSize.state('disabled')
+      end
+    }
+
+    @chunkDocs = TkCheckButton.new(@root){
+      text "Split Documents into chunks"
+      command chunkdocstoggled
+    }.grid('column'=>1,'row'=> 5, 'sticky'=>'w')
+
+    @chunkSize = TkSpinbox.new(@root) {
+      to 100000
+      from 100
+      increment 100
+      width 4
+    }.grid('column'=>2,'row'=>5, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @chunkSize.set(1000) #a good default value
+    @chunkSize.state('disabled') #disabled by default
+
     TkLabel.new{
       @root
       text "Loaded files:"
@@ -232,6 +258,11 @@ class Interface
         @masterWordList = settings["WordList"]
       end
       @pcaspinbox.set(settings["PCAdims"])
+      if settings["ChunkDocs"]
+        @chunkDocs.set_value("1")
+        @chunkSize.state('normal')
+      end
+      @chunkSize.set(settings["ChunkSize"])
     end
 
   end
