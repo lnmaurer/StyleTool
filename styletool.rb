@@ -106,6 +106,7 @@ class Interface
     @documents = Array.new
     @masterWordList = Array.new
 
+    #first, all the procs for use by the GUI
     quit = proc {
       settings = {"UseWordList" => (@wordListSpecified.get_value == "1"),
                  "PCAdims" => @pcaspinbox.get.to_i,
@@ -115,10 +116,6 @@ class Interface
       File.open(@@ConfigFile, "w"){|file| file.print(settings.to_yaml)}
       Process.exit
     }
-
-    #and now for the GUI
-    @root = TkRoot.new(){title 'Style Tool'}.protocol('WM_DELETE_WINDOW', quit)
-
     addfile = proc {
       filename = Tk.getOpenFile
       #if the user clicks "cancel" in the dialog box then filename == ""
@@ -142,18 +139,27 @@ class Interface
       filename = Tk.getSaveFile("filetypes"=>[["CSV", ".csv"]])
       self.savePCAtoCSV(filename,@pcaspinbox.get.to_i) unless filename == ""
    }
-    TkButton.new(@root) {
-      text    'Add file'
-      command addfile
-    }.grid('column'=>0, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkButton.new(@root) {
-      text    'Add folder'
-      command addfolder
-    }.grid('column'=>1, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkButton.new(@root) {
-      text    'Remove'
-      command remove
-    }.grid('column'=>2, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+   wordlisttoggled = proc {
+      if @wordListSpecified.get_value == "1"
+        filename = Tk.getOpenFile
+        unless filename == ""
+          self.specifyWordList(filename)
+        else #the user hit 'cancel' -- don't change anything!
+          @wordListSpecified.set_value("0")
+        end
+      else
+        self.unspecifyWordList
+      end
+    }
+
+
+    #and now for the GUI
+    
+    #the last bit calls the quit proc when the window is closed
+    @root = TkRoot.new(){title 'Style Tool'}.protocol('WM_DELETE_WINDOW', quit)
+
+    #top row (output commands)
+
     TkButton.new(@root) {
       text    'Save as CSV'
       command save
@@ -167,6 +173,8 @@ class Interface
       command savepca
     }.grid('column'=>2, 'row'=>0,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
 
+    #second row (PCA dims)
+
     TkLabel.new{
       @root
       text "PCA dimensions:"
@@ -178,46 +186,9 @@ class Interface
       width 4
     }.grid('column'=>2,'row'=>1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     @pcaspinbox.set(2) #a good default value
-
-    wordlisttoggled = proc {
-      if @wordListSpecified.get_value == "1"
-        filename = Tk.getOpenFile
-        unless filename == ""
-          self.specifyWordList(filename)
-        else #the user hit 'cancel' -- don't change anything!
-          @wordListSpecified.set_value("0")
-        end
-      else
-        self.unspecifyWordList
-      end
-    }
-    @wordListSpecified = TkCheckButton.new(@root){
-      text "Count specific words only"
-      command wordlisttoggled
-    }.grid('column'=>1,'row'=> 4, 'sticky'=>'w')
-
-    chunkdocstoggled = proc{
-      if @chunkDocs.get_value == "1"
-        @chunkSize.state('normal')
-      else
-        @chunkSize.state('disabled')
-      end
-    }
-
-    @chunkDocs = TkCheckButton.new(@root){
-      text "Split Documents into chunks"
-      command chunkdocstoggled
-    }.grid('column'=>1,'row'=> 5, 'sticky'=>'w')
-
-    @chunkSize = TkSpinbox.new(@root) {
-      to 100000
-      from 100
-      increment 100
-      width 4
-    }.grid('column'=>2,'row'=>5, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    @chunkSize.set(1000) #a good default value
-    @chunkSize.state('disabled') #disabled by default
-
+    
+    #3rd row (file treeview)
+    
     TkLabel.new{
       @root
       text "Loaded files:"
@@ -235,7 +206,10 @@ class Interface
       orient 'vertical'
       command scroll
     }.grid('column'=>2, 'row'=>2,'sticky'=>'wns')
-
+    
+    
+    #4th row (author)
+    
     TkLabel.new{
       @root
       text "Author:"
@@ -248,8 +222,62 @@ class Interface
     }.grid('column'=>1,'row'=> 3, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     authorDisp.textvariable(@author)
     @author.value = 'Unknown'
+    
+    #5th row (specify wordlist)
+    
+    @wordListSpecified = TkCheckButton.new(@root){
+      text "Count specific words only"
+      command wordlisttoggled
+    }.grid('column'=>1,'row'=> 4, 'sticky'=>'w')
+    
+    #6th row (adding files)
+    
+    TkButton.new(@root) {
+      text    'Add file'
+      command addfile
+    }.grid('column'=>0, 'row'=>5,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkButton.new(@root) {
+      text    'Add folder'
+      command addfolder
+    }.grid('column'=>1, 'row'=>5,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkButton.new(@root) {
+      text    'Remove'
+      command remove
+    }.grid('column'=>2, 'row'=>5,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
 
+    #7th row (chunking)
+    TkButton.new(@root) {
+      text    'Chunk and  add file'
+      #command addfile
+    }.grid('column'=>0, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkButton.new(@root) {
+      text    'Chunk and add folder'
+      #command addfolder
+    }.grid('column'=>1, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)   
+    
+    #8th row (chunking settings)
+
+    @saveChunks = TkCheckButton.new(@root){
+      text "Save file chunks?"
+    }.grid('column'=>0,'row'=> 7, 'sticky'=>'w')
+    
+    TkLabel.new{
+      @root
+      text "Chunk size (words):"
+    }.grid('column'=>1,'row'=>7, 'sticky'=>'e', 'padx'=>5, 'pady'=>5)
+
+    @chunkSize = TkSpinbox.new(@root) {
+      to 100000
+      from 100
+      increment 100
+      width 4
+    }.grid('column'=>2,'row'=>7, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @chunkSize.set(1000) #a good default value
+
+
+    #END GUI
     #load settings from config file if it exists
+    #if there's none to load, the default values are built in to the code
     if File.file?(@@ConfigFile)
       #TODO: error handling for YAML
       settings = YAML.load(File.open(@@ConfigFile))
