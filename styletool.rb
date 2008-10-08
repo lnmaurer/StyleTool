@@ -281,7 +281,7 @@ class Interface
       to 100000
       from 100
       increment 100
-      width 4
+      width 5
     }.grid('column'=>2,'row'=>7, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     @chunkSize.set(1000) #a good default value
 
@@ -309,7 +309,7 @@ class Interface
     PCAtool.new(self.coords).reduceDimensions(dims)
   end
   def specifyWordList(filename)
-    @masterWordList = IO.read(filename).downcase.scan(/\w+/).uniq
+    @masterWordList = File.read(filename).downcase.scan(/\w+/).uniq
     self.reload
   end
   def unspecifyWordList
@@ -345,7 +345,7 @@ class Interface
 
     #id is the full path but text is just the file name
     name = filename.split('/').pop
-    names = @tree.children(author).collect{|item| item.id.split('/').pop}
+    names = @tree.children(author).collect{|item| item.id.split(File::SEPARATOR).pop}
     i = 0
     while (i < names.size) and (name.casecmp(names[i]) == 1)
       i += 1
@@ -353,50 +353,50 @@ class Interface
     @tree.insert(author, i, :id => filename, :text => name)
 
     if @wordListSpecified.get_value == '1'
-      newdoc = Document.new(filename,author,IO.read(filename)) {|word| @masterWordList.include?(word)}
+      newdoc = Document.new(filename,author,File.read(filename)) {|word| @masterWordList.include?(word)}
     else
-      newdoc = Document.new(filename,author,IO.read(filename))
+      newdoc = Document.new(filename,author,File.read(filename))
       @masterWordList = (@masterWordList | newdoc.words).sort
     end
     @documents.push(newdoc)
     @documents = @documents.sort #keeps everything sorted
   end
   def chunkAndAddFile(filename,author,savedir="")
-    name = filename.split('/').pop
-    text = IO.read(filename).split
+    name = filename.split(File::SEPARATOR).pop
+    text = File.read(filename).split
     chunks = Array.new
     while text.size >= @chunkSize.get.to_i
       chunks << text.slice!(0,@chunkSize.get.to_i).join(' ')
     end
     
-    if chunks.size == 0 #document to short
+    if chunks.size == 0 #document too short
       #TODO: pop up message?
       return
     end
     
     #make an array of chunks
     if savedir == "" #save chunks to tempfiles
-      chunks.each{|chunk|
-        tf = Tempfile.new(name)
+      chunks.each_with_index{|chunk,i|
+        tf = Tempfile.new(name + '.' + i.to_s)
         tf.print(chunk)
         tf.close
         self.addFile(tf.path,author)
       }
     else #save them to real files
       chunks.each_with_index{|chunk,i|
-        sf = savedir + name + '.' + i.to_s
-        IO.open(sf,"w"){|f|
+        savefile = savedir + File::SEPARATOR + name + '.' + i.to_s
+        File.open(savefile,"w"){|f|
         f.print(chunk)}
-        self.addFile(sf,author)
+        self.addFile(savefile,author)
       }
     end
   end
   def addFolder(path,author)
     #add path to keep things consistant with adding single files
-    Dir.chdir(path){Dir.foreach(path){|file| self.addFile(path + '/' + file,author) if File.file?(file)}}
+    Dir.chdir(path){Dir.foreach(path){|file| self.addFile(path + File::SEPARATOR + file,author) if File.file?(file)}}
   end
   def chunkAndAddFolder(path,author,savedir="")
-    Dir.chdir(path){Dir.foreach(path){|file| self.chunkAndAddFile(path + '/' + file,author,savedir) if File.file?(file)}}
+    Dir.chdir(path){Dir.foreach(path){|file| self.chunkAndAddFile(path + File::SEPARATOR + file,author,savedir) if File.file?(file)}}
   end
   def remove(item)
     if @documents.collect{|doc| doc.author}.include?(item.id) #have we slected all works by the author?
