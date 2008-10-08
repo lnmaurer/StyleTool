@@ -111,7 +111,8 @@ class Interface
       settings = {"UseWordList" => (@wordListSpecified.get_value == "1"),
                  "PCAdims" => @pcaspinbox.get.to_i,
                  "WordList" => @masterWordList,
-                 "ChunkSize"=>@chunkSize.get.to_i}
+                 "ChunkSize"=>@chunkSize.get.to_i,
+                 "SaveChunks"=> (@saveChunks.get_value == "1")}
       File.open(@@ConfigFile, "w"){|file| file.print(settings.to_yaml)}
       Process.exit
     }
@@ -302,6 +303,7 @@ class Interface
         @chunkSize.state('normal')
       end
       @chunkSize.set(settings["ChunkSize"])
+      @saveChunks.set_value('1') if settings["SaveChunks"]
     end
 
   end
@@ -323,6 +325,10 @@ class Interface
     @tree.children("").each{|item| @tree.delete(item)}
     #reload it
     docinfo.each{|filename,author| self.addFile(filename,author)}
+  end
+  def readFile(filename)
+    #removes comments  
+    File.read(filename).gsub(/<(.|\s)*?>/,'')
   end
   def addFile(filename,author)
     if @tree.exist?(filename)
@@ -353,9 +359,9 @@ class Interface
     @tree.insert(author, i, :id => filename, :text => name)
 
     if @wordListSpecified.get_value == '1'
-      newdoc = Document.new(filename,author,File.read(filename)) {|word| @masterWordList.include?(word)}
+      newdoc = Document.new(filename,author,self.readFile(filename)) {|word| @masterWordList.include?(word)}
     else
-      newdoc = Document.new(filename,author,File.read(filename))
+      newdoc = Document.new(filename,author,self.readFile(filename))
       @masterWordList = (@masterWordList | newdoc.words).sort
     end
     @documents.push(newdoc)
@@ -363,7 +369,7 @@ class Interface
   end
   def chunkAndAddFile(filename,author,savedir="")
     name = filename.split(File::SEPARATOR).pop
-    text = File.read(filename).split
+    text = self.readFile(filename).split
     chunks = Array.new
     while text.size >= @chunkSize.get.to_i
       chunks << text.slice!(0,@chunkSize.get.to_i).join(' ')

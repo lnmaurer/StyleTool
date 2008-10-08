@@ -1,5 +1,6 @@
 --- 
-ChunkSize: 1000
+SaveChunks: false
+ChunkSize: 10000
 PCAdims: 2
 UseWordList: true
 WordList: 
