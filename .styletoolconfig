@@ -1,5 +1,7 @@
 --- 
-ChunkDocs: false
+ChunkSize: 1000
+PCAdims: 2
+UseWordList: true
 WordList: 
 - of
 - at
@@ -42,6 +44,3 @@ WordList:
 - not
 - nor
 - as
-PCAdims: 2
-ChunkSize: 1000
-UseWordList: true

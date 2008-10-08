@@ -111,7 +111,6 @@ class Interface
       settings = {"UseWordList" => (@wordListSpecified.get_value == "1"),
                  "PCAdims" => @pcaspinbox.get.to_i,
                  "WordList" => @masterWordList,
-                 "ChunkDocs" => (@chunkDocs.get_value == "1"),
                  "ChunkSize"=>@chunkSize.get.to_i}
       File.open(@@ConfigFile, "w"){|file| file.print(settings.to_yaml)}
       Process.exit
@@ -124,6 +123,18 @@ class Interface
     addfolder = proc {
       foldername = Tk.chooseDirectory
       self.addFolder(foldername,@author.value) unless foldername == ""
+    }
+    chunkaddfile = proc {
+      filename = Tk.getOpenFile
+      savefoldername = ""
+      savefoldername = Tk.chooseDirectory("title"=>"Choose folder to save chunks to") if @saveChunks.get_value == "1"
+      self.chunkAndAddFile(filename,@author.value,savefoldername) unless filename == ""
+    }
+    chunkaddfolder = proc {
+      foldername = Tk.chooseDirectory("title"=>"Choose folder to add files from")
+      savefoldername = ""
+      savefoldername = Tk.chooseDirectory("title"=>"Choose folder to save chunks to") if @saveChunks.get_value == "1"
+      self.chunkAndAddFolder(foldername,@author.value,savefoldername) unless foldername == ""
     }
     remove = proc {
       self.remove(@tree.focus_item)
@@ -138,8 +149,8 @@ class Interface
     savepca = proc {
       filename = Tk.getSaveFile("filetypes"=>[["CSV", ".csv"]])
       self.savePCAtoCSV(filename,@pcaspinbox.get.to_i) unless filename == ""
-   }
-   wordlisttoggled = proc {
+    }
+    wordlisttoggled = proc {
       if @wordListSpecified.get_value == "1"
         filename = Tk.getOpenFile
         unless filename == ""
@@ -248,11 +259,11 @@ class Interface
     #7th row (chunking)
     TkButton.new(@root) {
       text    'Chunk and  add file'
-      #command addfile
+      command chunkaddfile
     }.grid('column'=>0, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkButton.new(@root) {
       text    'Chunk and add folder'
-      #command addfolder
+      command chunkaddfolder
     }.grid('column'=>1, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)   
     
     #8th row (chunking settings)
@@ -350,9 +361,42 @@ class Interface
     @documents.push(newdoc)
     @documents = @documents.sort #keeps everything sorted
   end
+  def chunkAndAddFile(filename,author,savedir="")
+    name = filename.split('/').pop
+    text = IO.read(filename).split
+    chunks = Array.new
+    while text.size >= @chunkSize.get.to_i
+      chunks << text.slice!(0,@chunkSize.get.to_i).join(' ')
+    end
+    
+    if chunks.size == 0 #document to short
+      #TODO: pop up message?
+      return
+    end
+    
+    #make an array of chunks
+    if savedir == "" #save chunks to tempfiles
+      chunks.each{|chunk|
+        tf = Tempfile.new(name)
+        tf.print(chunk)
+        tf.close
+        self.addFile(tf.path,author)
+      }
+    else #save them to real files
+      chunks.each_with_index{|chunk,i|
+        sf = savedir + name + '.' + i.to_s
+        IO.open(sf,"w"){|f|
+        f.print(chunk)}
+        self.addFile(sf,author)
+      }
+    end
+  end
   def addFolder(path,author)
     #add path to keep things consistant with adding single files
     Dir.chdir(path){Dir.foreach(path){|file| self.addFile(path + '/' + file,author) if File.file?(file)}}
+  end
+  def chunkAndAddFolder(path,author,savedir="")
+    Dir.chdir(path){Dir.foreach(path){|file| self.chunkAndAddFile(path + '/' + file,author,savedir) if File.file?(file)}}
   end
   def remove(item)
     if @documents.collect{|doc| doc.author}.include?(item.id) #have we slected all works by the author?
