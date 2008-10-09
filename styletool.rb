@@ -173,7 +173,7 @@ class Interface
     #top row (output commands)
 
     TkButton.new(@root) {
-      text    'Save as CSV'
+      text    'Save word frequencies as CSV'
       command save
     }.grid('column'=>0, 'row'=>0,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkButton.new(@root) {
@@ -259,7 +259,7 @@ class Interface
 
     #7th row (chunking)
     TkButton.new(@root) {
-      text    'Chunk and  add file'
+      text    'Chunk and add file'
       command chunkaddfile
     }.grid('column'=>0, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkButton.new(@root) {
