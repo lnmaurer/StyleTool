@@ -331,6 +331,9 @@ class Interface
     File.read(filename).gsub(/<(.|\s)*?>/,'')
   end
   def addFile(filename,author)
+    addDoc(self.readFile(filename),filename,author)
+  end
+  def addDoc(text,filename,author)
     if @tree.exist?(filename)
       Tk.messageBox('type' => 'ok',
         'icon' => 'error',
@@ -359,9 +362,9 @@ class Interface
     @tree.insert(author, i, :id => filename, :text => name)
 
     if @wordListSpecified.get_value == '1'
-      newdoc = Document.new(filename,author,self.readFile(filename)) {|word| @masterWordList.include?(word)}
+      newdoc = Document.new(filename,author,text) {|word| @masterWordList.include?(word)}
     else
-      newdoc = Document.new(filename,author,self.readFile(filename))
+      newdoc = Document.new(filename,author,text)
       @masterWordList = (@masterWordList | newdoc.words).sort
     end
     @documents.push(newdoc)
@@ -383,17 +386,14 @@ class Interface
     #make an array of chunks
     if savedir == "" #save chunks to tempfiles
       chunks.each_with_index{|chunk,i|
-        tf = Tempfile.new(name + '.' + i.to_s)
-        tf.print(chunk)
-        tf.close
-        self.addFile(tf.path,author)
+        Tempfile.open(name + '.' + i.to_s){|f| f.print(chunk)}
+        self.addDoc(chunk,filename + '.' + i.to_s,author)
       }
     else #save them to real files
       chunks.each_with_index{|chunk,i|
         savefile = savedir + File::SEPARATOR + name + '.' + i.to_s
-        File.open(savefile,"w"){|f|
-        f.print(chunk)}
-        self.addFile(savefile,author)
+        File.open(savefile,"w"){|f| f.print(chunk)}
+        self.addDoc(chunk,savefile,author)
       }
     end
   end

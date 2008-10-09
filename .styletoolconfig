@@ -1,8 +1,4 @@
 --- 
-SaveChunks: false
-ChunkSize: 10000
-PCAdims: 2
-UseWordList: true
 WordList: 
 - of
 - at
@@ -45,3 +41,7 @@ WordList:
 - not
 - nor
 - as
+SaveChunks: false
+PCAdims: 2
+ChunkSize: 20000
+UseWordList: true
