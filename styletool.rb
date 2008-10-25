@@ -109,12 +109,12 @@ class Interface
 
     #first, all the procs for use by the GUI
     quit = proc {
-      settings = {"UseWordList" => (@wordListSpecified.get_value == "1"),
-                 "PCAdims" => @pcaspinbox.get.to_i,
-                 "WordList" => @masterWordList,
-                 "ChunkSize"=>@chunkSize.get.to_i,
-                 "SaveChunks"=> (@saveChunks.get_value == "1")}
-      File.open(@@ConfigFile, "w"){|file| file.print(settings.to_yaml)}
+#       settings = {"UseWordList" => (@wordListSpecified.get_value == "1"),
+#                  "PCAdims" => @pcaspinbox.get.to_i,
+#                  "WordList" => @masterWordList,
+#                  "ChunkSize"=>@chunkSize.get.to_i,
+#                  "SaveChunks"=> (@saveChunks.get_value == "1")}
+#       File.open(@@ConfigFile, "w"){|file| file.print(settings.to_yaml)}
       Process.exit
     }
     addfile = proc {
@@ -184,12 +184,16 @@ class Interface
     #file frame
 
 #TODO: horizontal scroll bar? change width and height?
+    TkLabel.new(fframe){
+      text "Loaded:"
+    }.grid('column'=>0,'row'=>0, 'sticky'=>'w')
+
     yscroll = proc{|*args| @lbscroll.set(*args)}
     scroll = proc{|*args| @tree.yview(*args)}
     @tree = Tk::Tile::Treeview.new(fframe){
       yscrollcommand yscroll
       selectmode 'browse'
-    }.grid(:column=>0,:row=> 0,:columnspan=>3, :sticky=>'we')
+    }.grid(:column=>1,:row=> 0,:columnspan=>2, :sticky=>'we')
 
     @lbscroll = TkScrollbar.new(fframe) {
       orient 'vertical'
@@ -276,7 +280,6 @@ class Interface
     @atype = TkVariable.new
     @atype.set_value('freq')
     @wlist = false #to store previous state of radio buttons
-#TODO: commands for these
     TkRadioButton.new(aframe,:text=>'Use Word List',:variable=>@atype,:value=>'list',:command=>specifiywordlist).grid('column'=>0, 'row'=>6,'columnspan'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkRadioButton.new(aframe,:text=>'X Most Frequently Used Words',:variable=>@atype,:value=>'freq',:command=>specifiywordlist).grid('column'=>0, 'row'=>7,'columnspan'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
 
