@@ -24,11 +24,16 @@ require 'gsl'
 require 'tkextlib/tile/treeview'
 require 'tempfile'
 
+def max(n,m)
+  n > m ? n : m
+end
+
 class Document
-  attr_reader :name, :author, :wordCount, :countedWords
-  def initialize(name, author, text)
+  attr_reader :name, :author, :group, :wordCount, :countedWords
+  def initialize(name, author, group, text)
     @name = name
     @author = author
+    @group = group
     @countedWords = Hash.new(0)
     words = text.downcase.scan(/\w+/) #doesn't catch contractions
     if block_given?
@@ -147,6 +152,9 @@ class Interface
     plotpca = proc {
       self.plotPCA
     }
+    explorepca = proc {
+      self.explorePCA
+    }
     savepca = proc {
       filename = Tk.getSaveFile("filetypes"=>[["CSV", ".csv"]])
       self.savePCAtoCSV(filename,@pcaspinbox.get.to_i) unless filename == ""
@@ -185,8 +193,12 @@ class Interface
       command savepca
     }.grid('column'=>2, 'row'=>0,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
 
-    #second row (PCA dims)
+    #second row (more PCA)
 
+    TkButton.new(@root) {
+      text    'explore 2D PCA'
+      command explorepca
+    }.grid('column'=>0, 'row'=>1,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     TkLabel.new{
       @root
       text "PCA dimensions:"
@@ -353,7 +365,9 @@ class Interface
     end
 
     #id is the full path but text is just the file name
-    name = filename.split('/').pop
+    name = filename.split(File::SEPARATOR).pop
+    #the group is the filename without the chunk number
+    group = name.gsub(/[.]\d+/,'')
     names = @tree.children(author).collect{|item| item.id.split(File::SEPARATOR).pop}
     i = 0
     while (i < names.size) and (name.casecmp(names[i]) == 1)
@@ -362,9 +376,9 @@ class Interface
     @tree.insert(author, i, :id => filename, :text => name)
 
     if @wordListSpecified.get_value == '1'
-      newdoc = Document.new(filename,author,text) {|word| @masterWordList.include?(word)}
+      newdoc = Document.new(filename,author,group,text) {|word| @masterWordList.include?(word)}
     else
-      newdoc = Document.new(filename,author,text)
+      newdoc = Document.new(filename,author,group,text)
       @masterWordList = (@masterWordList | newdoc.words).sort
     end
     @documents.push(newdoc)
@@ -432,42 +446,56 @@ class Interface
       end
     end
   end
-  
-  @@GraphColors = ['Red', 'Green', 'Blue', 'Magenta', 'Cyan']  
 
-  def plotPCA
+  @@GraphColors = ['Red', 'Green', 'Blue', 'Magenta', 'Cyan']     
+
+ def plotPCA                                                                                  
+   authors = @documents.collect{|doc| doc.author}.uniq                                        
+   #the following gives [ ['author',[x,y]], ...]                                              
+   c = @documents.collect{|doc| doc.author}.zip(self.doPCA(2))                                
+   tfiles = authors.collect do |author|                                                       
+     tf = Tempfile.new(author)                                                                
+     c.find_all{|arr| arr[0] == author}.each{|coords| tf.print(coords[1][0]," ",coords[1][1])}
+     tf.close                                                                                 
+     tf #need to return tf at the end                                                         
+   end                                                                                        
+ #TODO: change this? only a couple of colors are available.                                   
+ #TODO: Make a key for the colors                                                             
+ #TODO: use canvas instead of another program? canvas can output to postscript...             
+   color = 0                                                                                  
+   command = tfiles.inject("graph -T X -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + '"' + tf.path + '"'}
+   #'"' are to put quotes around the name, incase there is a space in it                                          
+   color = -1                                                                                                     
+   command += authors.inject(" -L \""){|command, auth| command + " #{auth} #{@@GraphColors[color+=1]} "} + '"'    
+   IO.popen(command, "w")                                                                                         
+   responce = Tk::messageBox(                                                                                     
+     'type' => 'yesno',                                                                                           
+     'message' => 'Do you wish to save this plot?',                                                               
+     'icon' => 'question',                                                                                        
+     'title' => 'Save plot?')                                                                                     
+   if responce == 'yes'                                                                                           
+     filename = Tk.getSaveFile("filetypes"=>[["PS", ".ps"],["PNG",".png"],["SVG",".svg"]])                        
+#      self.savePlot(filename) unless filename == ""                                                               
+     color = 0                                                                                                    
+     command = tfiles.inject("graph -T #{filename.split(".").pop} -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + '"' + tf.path + '"'}
+     color = -1                                                                                                                              
+     command += authors.inject(" -L \""){|command, auth| command + " #{auth} #{@@GraphColors[color+=1]} "} + "\" > #{filename}"              
+     IO.popen(command, "w")                                                                                                                  
+   end
+  end
+
+
+  def explorePCA
     authors = @documents.collect{|doc| doc.author}.uniq
-    #the following gives [ ['author',[x,y]], ...]
-    c = @documents.collect{|doc| doc.author}.zip(self.doPCA(2))
-    tfiles = authors.collect do |author|
-      tf = Tempfile.new(author)
-      c.find_all{|arr| arr[0] == author}.each{|coords| tf.print(coords[1][0]," ",coords[1][1])}
-      tf.close
-      tf #need to return tf at the end
-    end
-  #TODO: change this? only a couple of colors are available.
-  #TODO: Make a key for the colors
-  #TODO: use canvas instead of another program? canvas can output to postscript...
-    color = 0
-    command = tfiles.inject("graph -T X -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + '"' + tf.path + '"'}
-    #'"' are to put quotes around the name, incase there is a space in it
-    color = -1
-    command += authors.inject(" -L \""){|command, auth| command + " #{auth} #{@@GraphColors[color+=1]} "} + '"'
-    IO.popen(command, "w")
-    responce = Tk::messageBox(
-      'type' => 'yesno',
-      'message' => 'Do you wish to save this plot?',
-      'icon' => 'question',
-      'title' => 'Save plot?')
-    if responce == 'yes'
-      filename = Tk.getSaveFile("filetypes"=>[["PS", ".ps"],["PNG",".png"],["SVG",".svg"]])
-#      self.savePlot(filename) unless filename == ""
-      color = 0
-      command = tfiles.inject("graph -T #{filename.split(".").pop} -C"){|command,tf| command + " -m -#{color+=1} -S 3 " + '"' + tf.path + '"'}
-      color = -1
-      command += authors.inject(" -L \""){|command, auth| command + " #{auth} #{@@GraphColors[color+=1]} "} + "\" > #{filename}"
-      IO.popen(command, "w")
-    end
+
+    n = @documents.collect{|doc| doc.name}
+    a = @documents.collect{|doc| doc.author}
+    g = @documents.collect{|doc| doc.group}
+
+    p = Plot.new(@root)
+    #the following makes [ [[x,y],'name','author','group'], ...], then makes points from it
+    self.doPCA(2).zip(n,a,g).each{|coord,name,author,group| p.add(coord[0],coord[1],name,author,group)}
+    p.refresh
   end
 #  def savePlot(filename)
 #puts filename
@@ -485,6 +513,126 @@ class Interface
   end
 end
 
+
+class Plot < TkToplevel
+
+  @@CanvasSize = 500
+  def initialize(parent)
+    super(parent)
+    @items = Array.new
+  end
+
+  def add(x,y,name,group,subgroup)
+#    print x," ",y,"\n"
+    @items << Point.new(x,y,name,group,subgroup)
+  end
+
+  def refresh
+    @canvas = TkCanvas.new(self) {
+      width @@CanvasSize
+      height @@CanvasSize
+    }.grid('column'=>0,'row'=> 0, 'sticky'=>'nsew')
+    @name = TkVariable.new()
+    nameDisp = TkEntry.new(self) {
+      width 30
+      relief  'sunken'
+    }.grid('column'=>0,'row'=> 1, 'sticky'=>'n', 'padx'=>5, 'pady'=>5)
+    nameDisp.textvariable(@name)
+    @name.value = 'none selected'
+    closest = proc{|x, y|
+      c = @items.sort_by{|item|
+        xp = ((1 + item.x/@maxsize)*@@CanvasSize/2)
+        yp = ((1 + item.y/@maxsize)*@@CanvasSize/2)
+        ((x-xp)**2 + (y-yp)**2)**0.5
+      }[0]
+      @name.value = c.group + ': ' + c.name.split(File::SEPARATOR).pop
+      @canvas.delete('linetoclosest')
+      xp = ((1 + c.x/@maxsize)*@@CanvasSize/2)
+      yp = ((1 + c.y/@maxsize)*@@CanvasSize/2)
+      TkcLine.new(@canvas, x, y, xp, yp, :fill => 'black', :width => 1, :tags => 'linetoclosest')    
+    }
+
+    @canvas.bind("Motion", closest, "%x %y")
+
+    #size is the largest coordiante plus a bit
+    @maxsize = @items.inject(0){|largest,item| max(max(item.x,item.y),largest)} * 1.05
+    groups = @items.collect{|item| item.group}.sort
+
+    groups.each_with_index{|group,i|
+      ingroup = @items.reject{|item| item.group != group}
+      subgroups = ingroup.collect{|item| item.subgroup}.sort
+      subgroups.each_with_index{|subgroup,j|
+        insubgroup = ingroup.reject{|item| item.subgroup != subgroup}
+        insubgroup.each{|item|
+          r,g,b = color(i,groups.size,j,subgroups.size)
+          self.point(item.x,item.y,r,g,b)
+        }
+      }
+    }
+
+   #draw axis
+   TkcLine.new(@canvas, 0, @@CanvasSize/2, @@CanvasSize, @@CanvasSize/2, :fill => 'black', :width => 1)
+   TkcLine.new(@canvas, @@CanvasSize/2, 0, @@CanvasSize/2, @@CanvasSize, :fill => 'black', :width => 1)
+
+   TkcLine.new(@canvas, 0, 0, 0, 0, :fill => 'black', :width => 1, :tags => 'linetoclosest')
+
+  end
+  def point(x,y,r,g,b)
+    #print x," ",y," ",r," ",g," ",b,"\n"
+    rs = (r*255).round.to_s(16)
+    if rs.length == 1
+      rs = '0' + rs
+    end
+    gs = (g*255).round.to_s(16)
+    if gs.length == 1
+      gs = '0' + gs
+    end
+    bs = (b*255).round.to_s(16)
+    if bs.length == 1
+      bs = '0' + bs
+    end
+
+    color = '#' + rs + gs + bs
+#print color + "\n"
+    xp = ((1 + x/@maxsize)*@@CanvasSize/2).round
+    yp = ((1 + y/@maxsize)*@@CanvasSize/2).round
+    TkcLine.new(@canvas, xp-5, yp, xp+5, yp, :fill => color, :width => 1)
+    TkcLine.new(@canvas, xp, yp-5, xp, yp+5, :fill => color, :width => 1)
+  end
+  def color(i,hues,j,saturations)
+    h = 360 * (i/hues.to_f)
+    s = 0.75 + 0.25 * (j/saturations.to_f)
+    v = 0.5 + 0.5 * (j/saturations.to_f)
+
+    #convert to RGB
+    hi = (h/60.0).floor % 6
+    f = (h/60.0) - (h/60.0).floor
+
+    p = v*(1.0 - s)
+    q = v*(1.0 - s * f)
+    t = v*(1.0 - (1-f) * s)
+
+    case hi
+      when 0: [v,t,p]
+      when 1: [q,v,p]
+      when 2: [p,v,t]
+      when 3: [p,q,v]
+      when 4: [t,p,v]
+      when 5: [v,p,q]
+    end
+  end
+end
+
+class Point
+  attr_reader :x, :y, :name, :group, :subgroup
+  def initialize(x,y,name,group,subgroup)
+    @x = x
+    @y = y
+    @name = name
+    @group = group
+    @subgroup = subgroup
+  end
+end
 
 if __FILE__ == $0
   Interface.new
