@@ -36,11 +36,7 @@ class Document
     @group = group
     @countedWords = Hash.new(0)
     words = text.downcase.scan(/\w+/) #doesn't catch contractions
-    if block_given?
-      words.each{|word| @countedWords[word] += 1 if yield(word)}
-    else
-      words.each{|word| @countedWords[word] += 1}
-    end
+    words.each{|word| @countedWords[word] += 1}
     @wordCount = words.size
   end
   def words
@@ -123,24 +119,24 @@ class Interface
     }
     addfile = proc {
       filename = Tk.getOpenFile
-      #if the user clicks "cancel" in the dialog box then filename == ""
-      self.addFile(filename,@author.value) unless filename == ""
-    }
-    addfolder = proc {
-      foldername = Tk.chooseDirectory
-      self.addFolder(foldername,@author.value) unless foldername == ""
-    }
-    chunkaddfile = proc {
-      filename = Tk.getOpenFile
       savefoldername = ""
       savefoldername = Tk.chooseDirectory("title"=>"Choose folder to save chunks to") if @saveChunks.get_value == "1"
-      self.chunkAndAddFile(filename,@author.value,savefoldername) unless filename == ""
+      if @chunkSize.get.to_i == 0 #don't chunk
+        #if the user clicks "cancel" in the dialog box then filename == ""
+        self.addFile(filename,@author.value) unless filename == ""
+      else #chunk
+        self.chunkAndAddFile(filename,@author.value,savefoldername) unless filename == ""
+      end
     }
-    chunkaddfolder = proc {
+    addfolder = proc {
       foldername = Tk.chooseDirectory("title"=>"Choose folder to add files from")
       savefoldername = ""
       savefoldername = Tk.chooseDirectory("title"=>"Choose folder to save chunks to") if @saveChunks.get_value == "1"
-      self.chunkAndAddFolder(foldername,@author.value,savefoldername) unless foldername == ""
+      if @chunkSize.get.to_i == 0 #don't chunk
+        self.addFolder(foldername,@author.value) unless foldername == ""
+      else #chunk
+        self.chunkAndAddFolder(foldername,@author.value,savefoldername) unless foldername == ""
+      end
     }
     remove = proc {
       self.remove(@tree.focus_item)
@@ -159,176 +155,233 @@ class Interface
       filename = Tk.getSaveFile("filetypes"=>[["CSV", ".csv"]])
       self.savePCAtoCSV(filename,@pcaspinbox.get.to_i) unless filename == ""
     }
-    wordlisttoggled = proc {
-      if @wordListSpecified.get_value == "1"
-        filename = Tk.getOpenFile
+    specifiywordlist = proc {
+      if @atype.to_s == 'freq'
+        @wlist = false
+      else #we've selected to specify a word list
+      filename = Tk.getOpenFile
         unless filename == ""
-          self.specifyWordList(filename)
-        else #the user hit 'cancel' -- don't change anything!
-          @wordListSpecified.set_value("0")
+          @masterWordList = File.read(filename).downcase.scan(/\w+/).uniq
+          @wlist = true
+        else #the user hit 'cancel'
+          if @wlist == false #we were previously using frequency
+            @atype.set_value('freq')
+          end
         end
-      else
-        self.unspecifyWordList
       end
     }
 
 
     #and now for the GUI
-    
     #the last bit calls the quit proc when the window is closed
     @root = TkRoot.new(){title 'Style Tool'}.protocol('WM_DELETE_WINDOW', quit)
 
-    #top row (output commands)
+    #the frames:
+    fframe = TkLabelFrame.new(@root,:text=>'Files').grid(:column=>0,:row=>0,:columnspan=>2,:sticky=>'nsew',:padx=>5,:pady=>5)
+    aframe = TkLabelFrame.new(@root,:text=>'Analysis').grid(:column=>2,:row=>0,:sticky=>'nsew',:padx=>5,:pady=>5)
+    cframe = TkLabelFrame.new(@root,:text=>'Console').grid(:column=>0,:row=>1,:columnspan=>3,:sticky=>'nsew',:padx=>5,:pady=>5)
 
-    TkButton.new(@root) {
-      text    'Save word frequencies as CSV'
-      command save
-    }.grid('column'=>0, 'row'=>0,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkButton.new(@root) {
-      text    'plot 2D PCA'
-      command plotpca
-    }.grid('column'=>1, 'row'=>0,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkButton.new(@root) {
-      text    'Save PCA as CSV'
-      command savepca
-    }.grid('column'=>2, 'row'=>0,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-
-    #second row (more PCA)
-
-    TkButton.new(@root) {
-      text    'explore 2D PCA'
-      command explorepca
-    }.grid('column'=>0, 'row'=>1,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkLabel.new{
-      @root
-      text "PCA dimensions:"
-    }.grid('column'=>1,'row'=>1, 'sticky'=>'e', 'padx'=>5, 'pady'=>5)
-    @pcaspinbox = TkSpinbox.new(@root) {
-      to 50
-      from 1
-      increment 1
-      width 4
-    }.grid('column'=>2,'row'=>1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    @pcaspinbox.set(2) #a good default value
-    
-    #3rd row (file treeview)
-    
-    TkLabel.new{
-      @root
-      text "Loaded files:"
-    }.grid('column'=>0,'row'=>2, 'sticky'=>'w')
+    #file frame
 
 #TODO: horizontal scroll bar? change width and height?
     yscroll = proc{|*args| @lbscroll.set(*args)}
     scroll = proc{|*args| @tree.yview(*args)}
-    @tree = Tk::Tile::Treeview.new(@root){
+    @tree = Tk::Tile::Treeview.new(fframe){
       yscrollcommand yscroll
       selectmode 'browse'
-    }.grid('column'=>1,'row'=> 2, 'sticky'=>'we')
+    }.grid(:column=>0,:row=> 0,:columnspan=>3, :sticky=>'we')
 
-    @lbscroll = TkScrollbar.new(@root) {
+    @lbscroll = TkScrollbar.new(fframe) {
       orient 'vertical'
       command scroll
-    }.grid('column'=>2, 'row'=>2,'sticky'=>'wns')
-    
-    
-    #4th row (author)
-    
-    TkLabel.new{
-      @root
+    }.grid('column'=>4, 'row'=>0,'sticky'=>'wns')
+
+    TkLabel.new(fframe){
       text "Author:"
-    }.grid('column'=>0,'row'=>3, 'sticky'=>'w')
+    }.grid('column'=>0,'row'=>1, 'sticky'=>'w')
 
     @author = TkVariable.new()
-    authorDisp = TkEntry.new(@root) {
+    authorDisp = TkEntry.new(fframe) {
       width 30
       relief  'sunken'
-    }.grid('column'=>1,'row'=> 3, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>1,'row'=> 1, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     authorDisp.textvariable(@author)
     @author.value = 'Unknown'
-    
-    #5th row (specify wordlist)
-    
-    @wordListSpecified = TkCheckButton.new(@root){
-      text "Count specific words only"
-      command wordlisttoggled
-    }.grid('column'=>1,'row'=> 4, 'sticky'=>'w')
-    
-    #6th row (adding files)
-    
-    TkButton.new(@root) {
-      text    'Add file'
-      command addfile
-    }.grid('column'=>0, 'row'=>5,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkButton.new(@root) {
-      text    'Add folder'
-      command addfolder
-    }.grid('column'=>1, 'row'=>5,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkButton.new(@root) {
+
+    TkButton.new(fframe) {
       text    'Remove'
       command remove
-    }.grid('column'=>2, 'row'=>5,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>0, 'row'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
 
-    #7th row (chunking)
-    TkButton.new(@root) {
-      text    'Chunk and add file'
-      command chunkaddfile
-    }.grid('column'=>0, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-    TkButton.new(@root) {
-      text    'Chunk and add folder'
-      command chunkaddfolder
-    }.grid('column'=>1, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)   
+    TkButton.new(fframe) {
+      text    'Add file'
+      command addfile
+    }.grid('column'=>1, 'row'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkButton.new(fframe) {
+      text    'Add folder'
+      command addfolder
+    }.grid('column'=>2, 'row'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     
-    #8th row (chunking settings)
-
-    @saveChunks = TkCheckButton.new(@root){
-      text "Save file chunks?"
-    }.grid('column'=>0,'row'=> 7, 'sticky'=>'w')
-    
-    TkLabel.new{
-      @root
+    TkLabel.new(fframe){
       text "Chunk size (words):"
-    }.grid('column'=>1,'row'=>7, 'sticky'=>'e', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>0,'row'=>3, 'sticky'=>'e', 'padx'=>5, 'pady'=>5)
 
-    @chunkSize = TkSpinbox.new(@root) {
+    @chunkSize = TkSpinbox.new(fframe) {
       to 100000
       from 100
       increment 100
       width 5
-    }.grid('column'=>2,'row'=>7, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>1,'row'=>3, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
     @chunkSize.set(1000) #a good default value
+
+    @saveChunks = TkCheckButton.new(fframe){
+      text "Save file chunks?"
+    }.grid('column'=>2,'row'=> 3, 'sticky'=>'w')
+
+
+    #analysis frame
+
+    TkLabel.new(aframe){
+      text "PCA dimensions:"
+    }.grid('column'=>0,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @pcaspinbox = TkSpinbox.new(aframe) {
+      to 50
+      from 1
+      increment 1
+      width 4
+    }.grid('column'=>1,'row'=>0, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @pcaspinbox.set(2) #a good default value
+
+    TkButton.new(aframe) {
+      text    'Save word frequencies as CSV'
+      command save
+    }.grid('column'=>0, 'row'=>1,'columnspan'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkButton.new(aframe) {
+      text    'Save PCA as CSV'
+      command savepca
+    }.grid('column'=>0, 'row'=>2,'columnspan'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkButton.new(aframe) {
+      text    'Plot 2D PCA'
+      command plotpca
+    }.grid('column'=>0, 'row'=>3,'columnspan'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkButton.new(aframe) {
+      text    'Explore 2D PCA'
+      command explorepca
+    }.grid('column'=>0, 'row'=>4,'columnspan'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+
+    TkLabel.new(aframe){
+      text "Analysis type:"
+    }.grid('column'=>0,'row'=>5, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+
+    @atype = TkVariable.new
+    @atype.set_value('freq')
+    @wlist = false #to store previous state of radio buttons
+#TODO: commands for these
+    TkRadioButton.new(aframe,:text=>'Use Word List',:variable=>@atype,:value=>'list',:command=>specifiywordlist).grid('column'=>0, 'row'=>6,'columnspan'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    TkRadioButton.new(aframe,:text=>'X Most Frequently Used Words',:variable=>@atype,:value=>'freq',:command=>specifiywordlist).grid('column'=>0, 'row'=>7,'columnspan'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+
+    TkLabel.new(aframe){
+      text "X:"
+    }.grid('column'=>0,'row'=>8, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @wordstocount = TkSpinbox.new(aframe) {
+      to 200
+      from 1
+      increment 1
+      width 4
+    }.grid('column'=>1,'row'=>8, 'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    @wordstocount.set(50) #a good default value
+
+    #console frame
+    cyscroll = proc{|*args| @cscrollb.set(*args)}
+    cscroll = proc{|*args| @console.yview(*args)}
+    @console = TkText.new(cframe,:yscrollcommand=>cyscroll,:width=>80,:height=>10).grid(:column=>0,:row=>0,:padx=>5,:pady=>5)
+    @cscrollb = TkScrollbar.new(cframe,:orient=>'vertical',:command=>cscroll).grid(:column=>1,:row=>0,:padx=>5,:sticky=>'ns')
+
+
+
+    #top row (output commands)
+
+
+
+    #second row (more PCA)
+
+
+    
+    #3rd row (file treeview)
+    
+    
+    #4th row (author)
+
+    
+    #5th row (specify wordlist)
+    
+#     @wordListSpecified = TkCheckButton.new(@root){
+#       text "Count specific words only"
+#       command wordlisttoggled
+#     }.grid('column'=>1,'row'=> 4, 'sticky'=>'w')
+    
+    #6th row (adding files)
+    
+
+
+    #7th row (chunking)
+#     TkButton.new(@root) {
+#       text    'Chunk and add file'
+#       command chunkaddfile
+#     }.grid('column'=>0, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+#     TkButton.new(@root) {
+#       text    'Chunk and add folder'
+#       command chunkaddfolder
+#     }.grid('column'=>1, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)   
+    
+    #8th row (chunking settings)
+
+
 
 
     #END GUI
     #load settings from config file if it exists
     #if there's none to load, the default values are built in to the code
-    if File.file?(@@ConfigFile)
-      #TODO: error handling for YAML
-      settings = YAML.load(File.open(@@ConfigFile))
-      if settings["UseWordList"]
-        @wordListSpecified.set_value("1")
-        @masterWordList = settings["WordList"]
-      end
-      @pcaspinbox.set(settings["PCAdims"])
-      if settings["ChunkDocs"]
-        @chunkDocs.set_value("1")
-        @chunkSize.state('normal')
-      end
-      @chunkSize.set(settings["ChunkSize"])
-      @saveChunks.set_value('1') if settings["SaveChunks"]
-    end
+#TODO: update this for new GUI
+#     if File.file?(@@ConfigFile)
+#       #TODO: error handling for YAML
+#       settings = YAML.load(File.open(@@ConfigFile))
+#       if settings["UseWordList"]
+#         @wordListSpecified.set_value("1")
+#         @masterWordList = settings["WordList"]
+#       end
+#       @pcaspinbox.set(settings["PCAdims"])
+#       if settings["ChunkDocs"]
+#         @chunkDocs.set_value("1")
+#         @chunkSize.state('normal')
+#       end
+#       @chunkSize.set(settings["ChunkSize"])
+#       @saveChunks.set_value('1') if settings["SaveChunks"]
+#     end
 
   end
+
+#TODO: impliment this
+  #this is called at analysis time
+  def generateMasterWordList
+    #ONLY GENERATE A NEW WORD LIST IF WE'RE DOING 'X MOST POPULAR WORDS'
+    #WORD LIST WILL ALREADY BE LOADED OTHERWISE
+    #@masterWordList = 
+
+  end
+
+#   def specifyWordList(filename)
+#     @masterWordList = File.read(filename).downcase.scan(/\w+/).uniq
+#     self.reload
+#   end
+#   def unspecifyWordList
+#     @masterWordList = Array.new
+#     self.reload
+#   end
+
   def doPCA(dims)
+    self.generateMasterWordList
     PCAtool.new(self.coords).reduceDimensions(dims)
-  end
-  def specifyWordList(filename)
-    @masterWordList = File.read(filename).downcase.scan(/\w+/).uniq
-    self.reload
-  end
-  def unspecifyWordList
-    @masterWordList = Array.new
-    self.reload
   end
   def reload
     docinfo = @documents.collect{|doc| [doc.name,doc.author]}
@@ -375,13 +428,7 @@ class Interface
     end
     @tree.insert(author, i, :id => filename, :text => name)
 
-    if @wordListSpecified.get_value == '1'
-      newdoc = Document.new(filename,author,group,text) {|word| @masterWordList.include?(word)}
-    else
-      newdoc = Document.new(filename,author,group,text)
-      @masterWordList = (@masterWordList | newdoc.words).sort
-    end
-    @documents.push(newdoc)
+    @documents << Document.new(filename,author,group,text)
     @documents = @documents.sort #keeps everything sorted
   end
   def chunkAndAddFile(filename,author,savedir="")
@@ -424,15 +471,17 @@ class Interface
     else #it's a file
       @documents.reject!{|doc| doc.name == item.id}
     end
-    unless @wordListSpecified.get_value == '1'
-      @masterWordList = @documents.inject([""]){|words,doc| words |doc.words}
-    end
+#     unless @wordListSpecified.get_value == '1'
+#       @masterWordList = @documents.inject([""]){|words,doc| words |doc.words}
+#     end
     @tree.delete(item)
   end
   def coords
+    self.generateMasterWordList
     @documents.collect{|doc| @masterWordList.collect{|word| doc.relativeFrequency(word)}}
   end
   def saveToCSV(filename)
+    self.generateMasterWordList
     File.open(filename, "w") do |file|
       #prints the file name at the top of each column
       @documents.each{|doc| file.print(",",doc.author)}
@@ -517,6 +566,7 @@ end
 class Plot < TkToplevel
 
   @@CanvasSize = 500
+#TODO: make a way to give the window a name
   def initialize(parent)
     super(parent)
     @items = Array.new
