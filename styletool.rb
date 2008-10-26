@@ -24,6 +24,16 @@ require 'gsl'
 require 'tkextlib/tile/treeview'
 require 'tempfile'
 
+alias oldprint print
+#TODO: give this all the functionality of the old print
+def print(s)
+  if __FILE__ == $0
+    $gui.print_to_console(s)
+  else
+    oldprint(s)
+  end
+end
+
 def max(n,m)
   n > m ? n : m
 end
@@ -109,12 +119,13 @@ class Interface
 
     #first, all the procs for use by the GUI
     quit = proc {
-#       settings = {"UseWordList" => (@wordListSpecified.get_value == "1"),
-#                  "PCAdims" => @pcaspinbox.get.to_i,
-#                  "WordList" => @masterWordList,
-#                  "ChunkSize"=>@chunkSize.get.to_i,
-#                  "SaveChunks"=> (@saveChunks.get_value == "1")}
-#       File.open(@@ConfigFile, "w"){|file| file.print(settings.to_yaml)}
+      settings = {"WordListType" => @atype.to_s,
+                 "WordsToCount"=> @wordstocount.get.to_i,
+                 "PCAdims" => @pcaspinbox.get.to_i,
+                 "WordList" => @masterWordList,
+                 "ChunkSize"=>@chunkSize.get.to_i,
+                 "SaveChunks"=> (@saveChunks.get_value == "1")}
+      File.open(@@ConfigFile, "w"){|file| file.print(settings.to_yaml)}
       Process.exit
     }
     addfile = proc {
@@ -157,11 +168,15 @@ class Interface
     }
     specifiywordlist = proc {
       if @atype.to_s == 'freq'
+        @wordstocount.state('normal')
         @wlist = false
       else #we've selected to specify a word list
       filename = Tk.getOpenFile
         unless filename == ""
+          @wordstocount.state('disabled')
           @masterWordList = File.read(filename).downcase.scan(/\w+/).uniq
+          print "Loaded the following word list:\n"
+          print @masterWordList.join(' ') + "\n"
           @wlist = true
         else #the user hit 'cancel'
           if @wlist == false #we were previously using frequency
@@ -301,90 +316,62 @@ class Interface
     @cscrollb = TkScrollbar.new(cframe,:orient=>'vertical',:command=>cscroll).grid(:column=>1,:row=>0,:padx=>5,:sticky=>'ns')
 
 
-
-    #top row (output commands)
-
-
-
-    #second row (more PCA)
-
-
-    
-    #3rd row (file treeview)
-    
-    
-    #4th row (author)
-
-    
-    #5th row (specify wordlist)
-    
-#     @wordListSpecified = TkCheckButton.new(@root){
-#       text "Count specific words only"
-#       command wordlisttoggled
-#     }.grid('column'=>1,'row'=> 4, 'sticky'=>'w')
-    
-    #6th row (adding files)
-    
-
-
-    #7th row (chunking)
-#     TkButton.new(@root) {
-#       text    'Chunk and add file'
-#       command chunkaddfile
-#     }.grid('column'=>0, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
-#     TkButton.new(@root) {
-#       text    'Chunk and add folder'
-#       command chunkaddfolder
-#     }.grid('column'=>1, 'row'=>6,'sticky'=>'w', 'padx'=>5, 'pady'=>5)   
-    
-    #8th row (chunking settings)
-
-
-
-
     #END GUI
+#       settings = {"WordListType" => @atype.to_s,
+#                  "WordsToCount"=> @wordstocount.get.to_i,
+#                  "PCAdims" => @pcaspinbox.get.to_i,
+#                  "WordList" => @masterWordList,
+#                  "ChunkSize"=>@chunkSize.get.to_i,
+#                  "SaveChunks"=> (@saveChunks.get_value == "1")}
     #load settings from config file if it exists
     #if there's none to load, the default values are built in to the code
-#TODO: update this for new GUI
-#     if File.file?(@@ConfigFile)
-#       #TODO: error handling for YAML
-#       settings = YAML.load(File.open(@@ConfigFile))
-#       if settings["UseWordList"]
-#         @wordListSpecified.set_value("1")
-#         @masterWordList = settings["WordList"]
-#       end
-#       @pcaspinbox.set(settings["PCAdims"])
-#       if settings["ChunkDocs"]
-#         @chunkDocs.set_value("1")
-#         @chunkSize.state('normal')
-#       end
-#       @chunkSize.set(settings["ChunkSize"])
-#       @saveChunks.set_value('1') if settings["SaveChunks"]
-#     end
+    if File.file?(@@ConfigFile)
+      #TODO: error handling for YAML
+      settings = YAML.load(File.open(@@ConfigFile))
+      if settings['WordListType'] == 'list'
+        @atype.set_value('list')
+        @masterWordList = settings['WordList']
+        @wordstocount.state('disabled')
+        self.print_to_console("Loaded the following word list:\n")
+        self.print_to_console(@masterWordList.join(' ') + "\n")
+      end
+      @wordstocount.set(settings['WordsToCount'])
+      @pcaspinbox.set(settings["PCAdims"])
+      if settings["ChunkDocs"]
+        @chunkDocs.set_value("1")
+        @chunkSize.state('normal')
+      end
+      @chunkSize.set(settings["ChunkSize"])
+      @saveChunks.set_value('1') if settings["SaveChunks"]
+    end
 
   end
 
 #TODO: impliment this
   #this is called at analysis time
   def generateMasterWordList
-    #ONLY GENERATE A NEW WORD LIST IF WE'RE DOING 'X MOST POPULAR WORDS'
-    #WORD LIST WILL ALREADY BE LOADED OTHERWISE
-    #@masterWordList = 
-
+    #only generate a new word list if we're doing 'x most popular words'
+    #word list will already be loaded otherwise
+    if @atype.to_s == 'freq'
+      print "Generating word list...\n"
+      allWords = Hash.new(0)
+      @documents.each{|doc|
+        doc.words.each{|word|
+          allWords[word] += doc.count(word)
+        }
+      }
+      sorted = allWords.sort{|a,b| b[1]<=>a[1]}.collect{|a|a[0]}
+      @masterWordList = sorted.slice(0,@wordstocount.get.to_i)
+      print "The top #{@wordstocount.get.to_i} words are:\n"
+      print @masterWordList.join(' ') + "\n"
+    end
   end
 
-#   def specifyWordList(filename)
-#     @masterWordList = File.read(filename).downcase.scan(/\w+/).uniq
-#     self.reload
-#   end
-#   def unspecifyWordList
-#     @masterWordList = Array.new
-#     self.reload
-#   end
-
   def doPCA(dims)
-    self.generateMasterWordList
-    PCAtool.new(self.coords).reduceDimensions(dims)
+    print "Starting PCA\n"
+    p = PCAtool.new(self.coords).reduceDimensions(dims)
+    print "PCA complete\n"
+    p
   end
   def reload
     docinfo = @documents.collect{|doc| [doc.name,doc.author]}
@@ -395,8 +382,11 @@ class Interface
     docinfo.each{|filename,author| self.addFile(filename,author)}
   end
   def readFile(filename)
+    print "Reading file: \n#{filename}\n"
     #removes comments  
-    File.read(filename).gsub(/<(.|\s)*?>/,'')
+    text = File.read(filename).gsub(/<(.|\s)*?>/,'')
+    print "Done reading\n"
+    text
   end
   def addFile(filename,author)
     addDoc(self.readFile(filename),filename,author)
@@ -410,6 +400,10 @@ class Interface
       return #exits the function
     end
 
+    #id is the full path but text is just the file name
+    name = filename.split(File::SEPARATOR).pop
+    print "Adding document #{name}... "
+
     #add author if need be
     unless @tree.exist?(author)
       authors = @tree.children("").collect{|item| item.id}
@@ -420,8 +414,6 @@ class Interface
       @tree.insert('', i, :id => author, :text => author)
     end
 
-    #id is the full path but text is just the file name
-    name = filename.split(File::SEPARATOR).pop
     #the group is the filename without the chunk number
     group = name.gsub(/[.]\d+/,'')
     names = @tree.children(author).collect{|item| item.id.split(File::SEPARATOR).pop}
@@ -433,6 +425,7 @@ class Interface
 
     @documents << Document.new(filename,author,group,text)
     @documents = @documents.sort #keeps everything sorted
+    print "Done\n"
   end
   def chunkAndAddFile(filename,author,savedir="")
     name = filename.split(File::SEPARATOR).pop
@@ -464,9 +457,11 @@ class Interface
   def addFolder(path,author)
     #add path to keep things consistant with adding single files
     Dir.chdir(path){Dir.foreach(path){|file| self.addFile(path + File::SEPARATOR + file,author) if File.file?(file)}}
+    print "Done adding folder\n"
   end
   def chunkAndAddFolder(path,author,savedir="")
     Dir.chdir(path){Dir.foreach(path){|file| self.chunkAndAddFile(path + File::SEPARATOR + file,author,savedir) if File.file?(file)}}
+    print "Done adding folder\n"
   end
   def remove(item)
     if @documents.collect{|doc| doc.author}.include?(item.id) #have we slected all works by the author?
@@ -481,7 +476,10 @@ class Interface
   end
   def coords
     self.generateMasterWordList
-    @documents.collect{|doc| @masterWordList.collect{|word| doc.relativeFrequency(word)}}
+    print "Finding coordinates for Documents... "
+    c = @documents.collect{|doc| @masterWordList.collect{|word| doc.relativeFrequency(word)}}
+    print "Complete\n"
+    c
   end
   def saveToCSV(filename)
     self.generateMasterWordList
@@ -538,6 +536,7 @@ class Interface
 
 
   def explorePCA
+    print "Starting PCA explore\n"
     authors = @documents.collect{|doc| doc.author}.uniq
 
     n = @documents.collect{|doc| doc.name}
@@ -546,6 +545,7 @@ class Interface
 
     p = Plot.new(@root)
     #the following makes [ [[x,y],'name','author','group'], ...], then makes points from it
+    print "Adding points to plot\n"
     self.doPCA(2).zip(n,a,g).each{|coord,name,author,group| p.add(coord[0],coord[1],name,author,group)}
     p.refresh
   end
@@ -562,6 +562,11 @@ class Interface
         file.print("\n")
       end
     end    
+  end
+  def print_to_console(s)
+    @console.insert('end',s)
+    @console.see('end')
+    Tk.update
   end
 end
 
@@ -581,6 +586,7 @@ class Plot < TkToplevel
   end
 
   def refresh
+    print "Starting to draw plot\n"
     @canvas = TkCanvas.new(self) {
       width @@CanvasSize
       height @@CanvasSize
@@ -609,12 +615,14 @@ class Plot < TkToplevel
 
     #size is the largest coordiante plus a bit
     @maxsize = @items.inject(0){|largest,item| max(max(item.x,item.y),largest)} * 1.05
-    groups = @items.collect{|item| item.group}.sort
+    groups = @items.collect{|item| item.group}.uniq.sort
 
     groups.each_with_index{|group,i|
+      print "Starting group: #{group} (#{i+1}/#{groups.size})...\n"
       ingroup = @items.reject{|item| item.group != group}
-      subgroups = ingroup.collect{|item| item.subgroup}.sort
+      subgroups = ingroup.collect{|item| item.subgroup}.uniq.sort
       subgroups.each_with_index{|subgroup,j|
+        print "Starting subgroup: #{subgroup} (#{j+1}/#{subgroups.size})...\n"
         insubgroup = ingroup.reject{|item| item.subgroup != subgroup}
         insubgroup.each{|item|
           r,g,b = color(i,groups.size,j,subgroups.size)
@@ -654,7 +662,7 @@ class Plot < TkToplevel
   end
   def color(i,hues,j,saturations)
     h = 360 * (i/hues.to_f)
-    s = 0.75 + 0.25 * (j/saturations.to_f)
+    s = 0.5 + 0.5 * (j/saturations.to_f)
     v = 0.5 + 0.5 * (j/saturations.to_f)
 
     #convert to RGB
@@ -688,6 +696,6 @@ class Point
 end
 
 if __FILE__ == $0
-  Interface.new
+  $gui = Interface.new
   Tk.mainloop()
 end
