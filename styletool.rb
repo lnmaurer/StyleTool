@@ -45,7 +45,7 @@ class Document
     @author = author
     @group = group
     @countedWords = Hash.new(0)
-    words = text.downcase.scan(/\w+/) #doesn't catch contractions
+    words = text.downcase.scan(/\w[\w']*/) #now catches contractions
     words.each{|word| @countedWords[word] += 1}
     @wordCount = words.size
   end
@@ -174,7 +174,7 @@ class Interface
       filename = Tk.getOpenFile
         unless filename == ""
           @wordstocount.state('disabled')
-          @masterWordList = File.read(filename).downcase.scan(/\w+/).uniq
+          @masterWordList = File.read(filename).downcase.split.uniq
           print "Loaded the following word list:\n"
           print @masterWordList.join(' ') + "\n"
           @wlist = true
@@ -317,12 +317,7 @@ class Interface
 
 
     #END GUI
-#       settings = {"WordListType" => @atype.to_s,
-#                  "WordsToCount"=> @wordstocount.get.to_i,
-#                  "PCAdims" => @pcaspinbox.get.to_i,
-#                  "WordList" => @masterWordList,
-#                  "ChunkSize"=>@chunkSize.get.to_i,
-#                  "SaveChunks"=> (@saveChunks.get_value == "1")}
+
     #load settings from config file if it exists
     #if there's none to load, the default values are built in to the code
     if File.file?(@@ConfigFile)
