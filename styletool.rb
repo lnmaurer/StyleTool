@@ -342,7 +342,6 @@ class Interface
 
   end
 
-#TODO: impliment this
   #this is called at analysis time
   def generateMasterWordList
     #only generate a new word list if we're doing 'x most popular words'
@@ -378,7 +377,7 @@ class Interface
   end
   def readFile(filename)
     print "Reading file: \n#{filename}\n"
-    #removes comments  
+    #removes comments in angle brackets
     text = File.read(filename).gsub(/<(.|\s)*?>/,'')
     print "Done reading\n"
     text
@@ -573,15 +572,7 @@ class Plot < TkToplevel
   def initialize(parent)
     super(parent)
     @items = Array.new
-  end
 
-  def add(x,y,name,group,subgroup)
-#    print x," ",y,"\n"
-    @items << Point.new(x,y,name,group,subgroup)
-  end
-
-  def refresh
-    print "Starting to draw plot\n"
     @canvas = TkCanvas.new(self) {
       width @@CanvasSize
       height @@CanvasSize
@@ -593,23 +584,34 @@ class Plot < TkToplevel
     }.grid('column'=>0,'row'=> 1, 'sticky'=>'n', 'padx'=>5, 'pady'=>5)
     nameDisp.textvariable(@name)
     @name.value = 'none selected'
-    closest = proc{|x, y|
-      c = @items.sort_by{|item|
-        xp = ((1 + item.x/@maxsize)*@@CanvasSize/2)
-        yp = ((1 + item.y/@maxsize)*@@CanvasSize/2)
-        ((x-xp)**2 + (y-yp)**2)**0.5
-      }[0]
+    closest = proc{|canvasx, canvasy|
+      xplot, yplot = canvasToPlotCoords(canvasx, canvasy)
+      c = @items.sort_by{|item| ((item.x-xplot)**2 + (item.y-yplot)**2)**0.5}[0]
       @name.value = c.group + ': ' + c.name.split(File::SEPARATOR).pop
       @canvas.delete('linetoclosest')
-      xp = ((1 + c.x/@maxsize)*@@CanvasSize/2)
-      yp = ((1 + c.y/@maxsize)*@@CanvasSize/2)
-      TkcLine.new(@canvas, x, y, xp, yp, :fill => 'black', :width => 1, :tags => 'linetoclosest')    
+      xc, yc = plotToCanvasCoords(c.x, c.y)
+      TkcLine.new(@canvas, canvasx, canvasy, xc, yc, :fill => 'black', :width => 1, :tags => 'linetoclosest')    
     }
-
     @canvas.bind("Motion", closest, "%x %y")
+#TODO: add zoom in/out buttons, center on mouse click, and default view buttons
 
-    #size is the largest coordiante plus a bit
-    @maxsize = @items.inject(0){|largest,item| max(max(item.x,item.y),largest)} * 1.05
+  end
+
+  def add(x,y,name,group,subgroup)
+#    print x," ",y,"\n"
+    @items << Point.new(x,y,name,group,subgroup)
+  end
+
+  def refresh
+    print "Starting to draw plot\n"
+
+    #clean off the old plot
+    @canvas.delete('all')
+
+    #if the sizes haven't been defined, go with a default
+    unless defined?(@xmax)
+      self.setdefaultxy
+    end
     groups = @items.collect{|item| item.group}.uniq.sort
 
     groups.each_with_index{|group,i|
@@ -626,10 +628,13 @@ class Plot < TkToplevel
       }
     }
 
-   #draw axis
-   TkcLine.new(@canvas, 0, @@CanvasSize/2, @@CanvasSize, @@CanvasSize/2, :fill => 'black', :width => 1)
-   TkcLine.new(@canvas, @@CanvasSize/2, 0, @@CanvasSize/2, @@CanvasSize, :fill => 'black', :width => 1)
-
+   #now for the axies
+   xzero,yzero = plotToCanvasCoords(0,0)
+   #x axis
+   TkcLine.new(@canvas, 0, yzero, @@CanvasSize, yzero, :fill => 'black', :width => 1)
+   #y axis
+   TkcLine.new(@canvas, xzero, 0, xzero, @@CanvasSize, :fill => 'black', :width => 1)
+   #make a dummy line to be replaced later
    TkcLine.new(@canvas, 0, 0, 0, 0, :fill => 'black', :width => 1, :tags => 'linetoclosest')
 
   end
@@ -650,10 +655,9 @@ class Plot < TkToplevel
 
     color = '#' + rs + gs + bs
 #print color + "\n"
-    xp = ((1 + x/@maxsize)*@@CanvasSize/2).round
-    yp = ((1 + y/@maxsize)*@@CanvasSize/2).round
-    TkcLine.new(@canvas, xp-5, yp, xp+5, yp, :fill => color, :width => 1)
-    TkcLine.new(@canvas, xp, yp-5, xp, yp+5, :fill => color, :width => 1)
+    xc, yc = plotToCanvasCoords(x,y)
+    TkcLine.new(@canvas, xc-5, yc, xc+5, yc, :fill => color, :width => 1)
+    TkcLine.new(@canvas, xc, yc-5, xc, yc+5, :fill => color, :width => 1)
   end
   def color(i,hues,j,saturations)
     h = 360 * (i/hues.to_f)
@@ -676,6 +680,22 @@ class Plot < TkToplevel
       when 4: [t,p,v]
       when 5: [v,p,q]
     end
+  end
+  def setdefaultxy
+    #maxsize is the largest coordiante plus a bit
+    maxsize = @items.inject(0){|largest,item| max(max(item.x,item.y),largest)} * 1.05
+    @xmax = @ymax = maxsize
+    @xmin = @ymin = -maxsize
+  end
+  def canvasToPlotCoords(canvasx,canvasy)
+    plotx = canvasx * (@xmax - @xmin)/@@CanvasSize + @xmin
+    ploty = canvasy * (@ymax - @ymin)/@@CanvasSize + @ymin
+    [plotx,ploty]
+  end
+  def plotToCanvasCoords(plotx,ploty)
+    canvasx = (plotx  - @xmin ) * @@CanvasSize/(@xmax - @xmin)
+    canvasy = (ploty  - @ymin ) * @@CanvasSize/(@ymax - @ymin)
+    [canvasx.round,canvasy.round]
   end
 end
 
