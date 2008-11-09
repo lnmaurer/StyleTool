@@ -568,6 +568,7 @@ end
 class Plot < TkToplevel
 
   @@CanvasSize = 500
+  @@ZoomFactor = 0.9
 #TODO: make a way to give the window a name
   def initialize(parent)
     super(parent)
@@ -576,12 +577,12 @@ class Plot < TkToplevel
     @canvas = TkCanvas.new(self) {
       width @@CanvasSize
       height @@CanvasSize
-    }.grid('column'=>0,'row'=> 0, 'sticky'=>'nsew')
+    }.grid('column'=>0,'row'=> 0, :columnspan=>4, 'sticky'=>'nsew')
     @name = TkVariable.new()
     nameDisp = TkEntry.new(self) {
       width 30
       relief  'sunken'
-    }.grid('column'=>0,'row'=> 1, 'sticky'=>'n', 'padx'=>5, 'pady'=>5)
+    }.grid('column'=>1,'row'=> 1, :columnspan=>2, 'sticky'=>'n', 'padx'=>5, 'pady'=>5)
     nameDisp.textvariable(@name)
     @name.value = 'none selected'
     closest = proc{|canvasx, canvasy|
@@ -592,8 +593,50 @@ class Plot < TkToplevel
       xc, yc = plotToCanvasCoords(c.x, c.y)
       TkcLine.new(@canvas, canvasx, canvasy, xc, yc, :fill => 'black', :width => 1, :tags => 'linetoclosest')    
     }
+    center = proc{|canvasx, canvasy|
+      plotx, ploty = canvasToPlotCoords(canvasx, canvasy)
+      centerx = (@xmin + @xmax)/2
+      centery = (@ymin + @ymax)/2
+      diffx = plotx - centerx
+      diffy = ploty - centery
+      @xmin += diffx
+      @xmax += diffx
+      @ymin += diffy
+      @ymax += diffy
+      self.refresh
+    }
     @canvas.bind("Motion", closest, "%x %y")
-#TODO: add zoom in/out buttons, center on mouse click, and default view buttons
+    @canvas.bind('1',  center, "%x %y")
+    zoomin = proc {
+      @xmin = @@ZoomFactor * @xmin
+      @xmax = @@ZoomFactor * @xmax
+      @ymin = @@ZoomFactor * @ymin
+      @ymax = @@ZoomFactor * @ymax
+      self.refresh
+    }
+    TkButton.new(self) {
+      text    'Zoom In'
+      command zoomin
+    }.grid('column'=>0, 'row'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    zoomout = proc {
+      @xmin = @xmin * 1 / @@ZoomFactor
+      @xmax = @xmax * 1 / @@ZoomFactor
+      @ymin = @ymin * 1 / @@ZoomFactor
+      @ymax = @ymax * 1 / @@ZoomFactor
+      self.refresh
+    }
+    TkButton.new(self) {
+      text    'Zoom Out'
+      command zoomout
+    }.grid('column'=>1, 'row'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
+    defaultview = proc{
+      self.setdefaultxy
+      self.refresh
+    }
+    TkButton.new(self) {
+      text    'Default View'
+      command defaultview
+    }.grid('column'=>3, 'row'=>2,'sticky'=>'w', 'padx'=>5, 'pady'=>5)
 
   end
 
