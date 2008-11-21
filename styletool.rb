@@ -732,12 +732,13 @@ class Plot < TkToplevel
   end
   def canvasToPlotCoords(canvasx,canvasy)
     plotx = canvasx * (@xmax - @xmin)/@@CanvasSize + @xmin
-    ploty = canvasy * (@ymax - @ymin)/@@CanvasSize + @ymin
+    #y is different because 0 of the canvas is ymax for the plot
+    ploty = canvasy * (@ymin - @ymax)/@@CanvasSize + @ymax
     [plotx,ploty]
   end
   def plotToCanvasCoords(plotx,ploty)
     canvasx = (plotx  - @xmin ) * @@CanvasSize/(@xmax - @xmin)
-    canvasy = (ploty  - @ymin ) * @@CanvasSize/(@ymax - @ymin)
+    canvasy = (ploty  - @ymax ) * @@CanvasSize/(@ymin - @ymax)
     [canvasx.round,canvasy.round]
   end
 end
