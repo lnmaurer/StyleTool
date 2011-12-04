@@ -1,7 +1,7 @@
 --- 
 WordsToCount: 100
 SaveChunks: false
-ChunkSize: 5000
+ChunkSize: 10000
 PCAdims: 2
 WordListType: !str 
   str: list

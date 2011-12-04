@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 
 #styletool -- a simple word frequency based stylometry tool
-#Copyright (C) 2008  Leon N. Maurer
+#Copyright (C) 2011  Leon N. Maurer
 
 #This program is free software; you can redistribute it and/or
 #modify it under the terms of the GNU General Public License
