@@ -1,14 +1,19 @@
 StyleTool: A simple, open source, word frequency based stylometry tool
 
-This program does a word frequency comparison to perform stylometry on text documents. There is a simple GUI made with tk. It can do principle component analysis (PCA) and plot the results so that clustering can be performed visually (using the squint algorithm). Word frequency data and PCA results can also be saved. The program requires GNU plotutils and Ruby/GSL.
+This program does a word frequency comparison to perform stylometry on text
+documents. There is a simple GUI made with tk. It can do principle component
+analysis (PCA) and plot the results so that clustering can be performed
+visually (using the squint algorithm). Word frequency data and PCA results can
+also be saved. The program requires GNU plotutils and Ruby/GSL.
 
 A screen shot is available at:
-https://mywebspace.wisc.edu/lnmaurer/web/styletool/styletool.html
+http://www.physics.wisc.edu/~lmaurer/code/styletool/styletool.html
 
 A little more information is available at:
-https://mywebspace.wisc.edu/lnmaurer/web/index.html#styletool
+http://www.physics.wisc.edu/~lmaurer/index.html#styletool
 
-Several Novels are included for testing purposes. They are public domain works provided by Project Gutenberg.
+Several Novels are included for testing purposes. They are public domain works
+provided by Project Gutenberg.
 
 -------------------------------------------------------------------------------
 This program is Copyright (C) 2011  Leon N. Maurer

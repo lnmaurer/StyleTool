@@ -1,11 +1,4 @@
 --- 
-WordsToCount: 100
-SaveChunks: false
-ChunkSize: 10000
-PCAdims: 2
-WordListType: !str 
-  str: list
-  "@encoding": utf-8
 WordList: 
 - of
 - at
@@ -48,3 +41,10 @@ WordList:
 - not
 - nor
 - as
+PCAdims: 2
+WordsToCount: 300
+WordListType: !str 
+  str: list
+  "@encoding": utf-8
+SaveChunks: false
+ChunkSize: 10000
