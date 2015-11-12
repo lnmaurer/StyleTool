@@ -1,5 +1,10 @@
---- 
-WordList: 
+---
+WordListType: !ruby/string
+  str: list
+  encoding: utf-8
+WordsToCount: 300
+PCAdims: 2
+WordList:
 - of
 - at
 - in
@@ -37,14 +42,9 @@ WordList:
 - have
 - got
 - do
-- "no"
+- 'no'
 - not
 - nor
 - as
-PCAdims: 2
-WordsToCount: 300
-WordListType: !str 
-  str: list
-  "@encoding": utf-8
-SaveChunks: false
 ChunkSize: 10000
+SaveChunks: false

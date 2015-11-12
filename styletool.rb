@@ -310,11 +310,11 @@ class Interface
     @wordstocount.set(50) #a good default value
 
     #console frame
-    cyscroll = proc{|*args| @cscrollb.set(*args)}
-    cscroll = proc{|*args| @console.yview(*args)}
-    @console = TkText.new(cframe,:yscrollcommand=>cyscroll,:width=>80,:height=>10).grid(:column=>0,:row=>0,:padx=>5,:pady=>5)
-    @cscrollb = TkScrollbar.new(cframe,:orient=>'vertical',:command=>cscroll).grid(:column=>1,:row=>0,:padx=>5,:sticky=>'ns')
-
+    
+    @console = TkText.new(cframe,:width=>80,:height=>10).grid(:column=>0,:row=>0,:padx=>5,:pady=>5)
+    @cscrollb = TkScrollbar.new(cframe,:orient=>'vertical').grid(:column=>1,:row=>0,:padx=>5,:sticky=>'ns')
+    @console.yscrollcommand = proc{|*args| @cscrollb.set(*args)}
+    @cscrollb.command = proc{|*args| @console.yview(*args)}
 
     #END GUI
 
@@ -716,12 +716,12 @@ class Plot < TkToplevel
     t = v*(1.0 - (1-f) * s)
 
     case hi
-      when 0: [v,t,p]
-      when 1: [q,v,p]
-      when 2: [p,v,t]
-      when 3: [p,q,v]
-      when 4: [t,p,v]
-      when 5: [v,p,q]
+      when 0 then return v,t,p
+      when 1 then return q,v,p
+      when 2 then return p,v,t
+      when 3 then return p,q,v
+      when 4 then return t,p,v
+      when 5 then return v,p,q
     end
   end
   def setdefaultxy
